@@ -342,7 +342,8 @@
                 lucide.createIcons();
 
                 try {
-                    const API_URL = 'https://webmail-hywqps1kh-lighminges-projects.vercel.app/api/emails'; 
+                    // 更新為最新的 Vercel API 網址
+                    const API_URL = 'https://webmail-api-git-main-lighminges-projects.vercel.app/api/emails'; 
 
                     const response = await fetch(API_URL, {
                         method: 'POST',
@@ -600,7 +601,8 @@
                 showToast("正在傳送郵件...");
                 
                 try {
-                    const API_URL = 'https://webmail-hywqps1kh-lighminges-projects.vercel.app/api/send';
+                    // 更新為最新的 Vercel API 網址
+                    const API_URL = 'https://webmail-api-git-main-lighminges-projects.vercel.app/api/send';
 
                     const response = await fetch(API_URL, {
                         method: 'POST',
