@@ -216,7 +216,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">密碼 / 應用程式密碼</label>
                         <input type="password" id="accPassword" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                        <p class="text-xs text-gray-500 mt-1">註：此處密碼僅供 Firebase 儲存測試用。</p>
+                        <p class="text-xs text-gray-500 mt-1">註：Gmail 請務必使用「應用程式密碼 (16碼)」。</p>
                     </div>
                     <button type="submit" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-2 rounded-lg transition mt-2">
                         儲存並連結
@@ -236,7 +236,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration setup
+        // Firebase Configuration setup (使用您專屬的 github-webmail 設定)
         const firebaseConfig = {
             apiKey: "AIzaSyBLHWC6grK-mfDATUY76AX1GTce5iHDi30",
             authDomain: "github-webmail.firebaseapp.com",
@@ -309,14 +309,14 @@
             setupListeners: function() {
                 if (!user) return;
 
-                // Listen to accounts
+                // 監聽 Firebase 帳號設定
                 const accountsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'accounts');
                 onSnapshot(accountsRef, (snapshot) => {
                     state.accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderAccountSelect();
                     this.renderSettingsAccounts();
 
-                    // Auto select first account if none selected
+                    // 自動選擇第一個帳號
                     if (state.accounts.length > 0 && !state.selectedAccountId) {
                         this.selectAccount(state.accounts[0].id);
                     } else if (state.accounts.length === 0) {
@@ -329,21 +329,23 @@
                 }, (error) => console.error("Accounts listener error:", error));
             },
 
+            // 向 Vercel 請求真實信件
             fetchRealEmails: async function() {
                 if (!state.selectedAccountId) return;
                 
                 const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
                 if (!activeAcc) return;
 
-                document.getElementById('emailList').innerHTML = '<div class="p-8 text-center text-gray-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500"></i><p>正在透過 Vercel 從伺服器接收真實信件...</p></div>';
+                // 顯示載入中 UI
+                document.getElementById('emailList').innerHTML = '<div class="p-8 text-center text-gray-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500"></i><p>正在透過 Vercel 伺服器接收信件，請稍候...</p></div>';
                 document.getElementById('emailList').classList.remove('hidden');
                 document.getElementById('emptyState').classList.add('hidden');
                 document.getElementById('noAccountState').classList.add('hidden');
                 lucide.createIcons();
 
                 try {
-                    // 更新為最新的 Vercel API 網址
-                    const API_URL = 'https://webmail-api-git-main-lighminges-projects.vercel.app/api/emails';
+                    // 【正確的 Vercel API 網址】
+                    const API_URL = 'https://webmail-api-git-main-lighminges-projects.vercel.app/api/emails'; 
 
                     const response = await fetch(API_URL, {
                         method: 'POST',
@@ -351,18 +353,19 @@
                         body: JSON.stringify({
                             user: activeAcc.email,
                             pass: activeAcc.password,
-                            imapHost: activeAcc.imap
+                            imapHost: activeAcc.imap || 'imap.gmail.com'
                         })
                     });
                     
-                    // 新增：如果 Vercel 回傳 500/504 等 HTTP 錯誤，先解析文字錯誤
+                    // 檢查伺服器是否回傳非 200 狀態碼
                     if (!response.ok) {
                         const errorText = await response.text();
-                        throw new Error(`伺服器回應 ${response.status}: ${errorText.substring(0, 100)}...`);
+                        throw new Error(`伺服器錯誤 (${response.status}): ${errorText.substring(0, 150)}`);
                     }
 
                     const data = await response.json();
                     if (data.success) {
+                        // 保留寄件匣/草稿，並載入最新的收件匣信件
                         const otherEmails = state.emails.filter(e => e.folder !== 'inbox');
                         const fetchedInbox = data.emails.map(e => ({ ...e, accountId: activeAcc.id, folder: 'inbox' }));
                         state.emails = [...otherEmails, ...fetchedInbox];
@@ -370,18 +373,22 @@
                         this.renderEmailList();
                         this.updateUnreadBadges();
                     } else {
-                        showToast("收信失敗: " + data.error);
-                        document.getElementById('emailList').innerHTML = `<div class="p-8 text-center text-red-500"><p>收信邏輯失敗: ${data.error}</p></div>`;
+                        throw new Error(data.error || "未知錯誤");
                     }
                 } catch (e) {
                     console.error("Fetch 錯誤詳情:", e);
+                    let displayMsg = e.message;
+                    if (e.message.includes('Failed to fetch')) {
+                        displayMsg = "跨域請求被阻擋 (CORS) 或 Vercel 伺服器無回應。請確認 vercel.json 標頭設定是否正確推送到 GitHub。";
+                    }
+
                     showToast("無法連接到郵件伺服器");
                     document.getElementById('emailList').innerHTML = `
                         <div class="p-8 text-center text-red-500 flex flex-col items-center">
                             <i data-lucide="alert-circle" class="w-10 h-10 mb-2"></i>
-                            <p class="font-bold">無法連接到後端 API</p>
-                            <p class="text-sm mt-2 max-w-md break-all">${e.message}</p>
-                            <p class="text-xs text-gray-500 mt-4">建議按 F12 打開開發者工具的 Console 查看詳細錯誤</p>
+                            <p class="font-bold text-lg mb-2">收信失敗</p>
+                            <p class="text-sm max-w-md break-all bg-red-50 p-3 rounded border border-red-100">${displayMsg}</p>
+                            <button onclick="app.fetchRealEmails()" class="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition text-sm">重試連線</button>
                         </div>
                     `;
                     lucide.createIcons();
@@ -475,6 +482,7 @@
                 document.getElementById('accountSelect').value = accountId || '';
                 this.closeEmail();
                 if (accountId) {
+                    // 切換帳號時自動觸發抓信
                     this.fetchRealEmails();
                 } else {
                     this.renderEmailList();
@@ -500,19 +508,24 @@
                 document.getElementById('currentFolderTitle').textContent = titles[folder];
 
                 this.closeEmail();
-                this.renderEmailList();
+                
+                // 如果是切換回收件匣，重新抓一次最新的信
+                if (folder === 'inbox') {
+                    this.fetchRealEmails();
+                } else {
+                    this.renderEmailList();
+                }
             },
 
             viewEmail: async function(email) {
                 if (!email) return;
                 state.viewingEmail = email;
 
-                // Mark as read if in inbox
+                // 標記為已讀 (目前僅影響前端顯示狀態)
                 if (!email.read && email.folder === 'inbox') {
-                    try {
-                        const emailRef = doc(db, 'artifacts', appId, 'users', user.uid, 'emails', email.id);
-                        await updateDoc(emailRef, { read: true });
-                    } catch (e) { console.error("Error updating read status", e); }
+                    email.read = true;
+                    this.renderEmailList();
+                    this.updateUnreadBadges();
                 }
 
                 document.getElementById('emailListView').classList.add('hidden');
@@ -527,7 +540,6 @@
                 document.getElementById('detailDate').textContent = date;
                 document.getElementById('detailAvatar').textContent = avatarLetter;
                 
-                // Simple body render (escaping html to be safe, converting newlines)
                 const safeBody = email.body.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
                 document.getElementById('detailBody').innerHTML = safeBody;
                 
@@ -542,23 +554,12 @@
 
             deleteCurrentEmail: async function() {
                 if (!state.viewingEmail || !user) return;
-                const emailRef = doc(db, 'artifacts', appId, 'users', user.uid, 'emails', state.viewingEmail.id);
                 
-                try {
-                    if (state.viewingEmail.folder === 'trash') {
-                        // Permanently delete
-                        await deleteDoc(emailRef);
-                        showToast("郵件已永久刪除");
-                    } else {
-                        // Move to trash
-                        await updateDoc(emailRef, { folder: 'trash' });
-                        showToast("郵件已移至垃圾桶");
-                    }
-                    this.closeEmail();
-                } catch (e) {
-                    console.error("Delete error", e);
-                    showToast("刪除失敗");
-                }
+                // 移至垃圾桶 (目前僅操作前端狀態)
+                state.viewingEmail.folder = 'trash';
+                showToast("郵件已移至垃圾桶 (前端隱藏)");
+                this.closeEmail();
+                this.renderEmailList();
             },
 
             // --- Compose Logic ---
@@ -601,8 +602,8 @@
                 showToast("正在傳送郵件...");
                 
                 try {
-                    // 更新為最新的 Vercel API 網址
-                    const API_URL = 'https://webmail-api-git-main-lighminges-projects.vercel.app/api/emails';
+                    // 【正確的 Vercel API 網址】
+                    const API_URL = 'https://webmail-api-git-main-lighminges-projects.vercel.app/api/send';
 
                     const response = await fetch(API_URL, {
                         method: 'POST',
@@ -613,20 +614,20 @@
                             to: to,
                             subject: subject,
                             text: body,
-                            smtpHost: activeAcc.smtp
+                            smtpHost: activeAcc.smtp || 'smtp.gmail.com'
                         })
                     });
 
-                    // 新增：捕捉伺服器非 200 狀態碼的錯誤
                     if (!response.ok) {
                         const errorText = await response.text();
-                        throw new Error(`伺服器回應 ${response.status}: ${errorText}`);
+                        throw new Error(`伺服器錯誤 (${response.status}): ${errorText}`);
                     }
 
                     const data = await response.json();
                     if (data.success) {
                         showToast("郵件已成功傳送！");
                         
+                        // 將寄出的信件存入狀態中顯示在「寄件匣」
                         const newEmail = {
                             id: 'sent-' + Date.now(),
                             accountId: state.selectedAccountId,
@@ -647,12 +648,16 @@
                             this.renderEmailList();
                         }
                     } else {
-                        showToast("傳送失敗: " + data.error);
+                        throw new Error(data.error);
                     }
                 } catch (e) {
                     console.error("Send error", e);
-                    showToast("無法連接到郵件伺服器");
-                    alert(`寄信發生錯誤：\n${e.message}\n\n請按 F12 檢查 Console 紀錄。`);
+                    let displayMsg = e.message;
+                    if (e.message.includes('Failed to fetch')) {
+                        displayMsg = "跨域請求被阻擋 (CORS) 或是伺服器無回應。";
+                    }
+                    showToast("傳送失敗");
+                    alert(`寄信發生錯誤：\n${displayMsg}`);
                 }
             },
 
@@ -701,9 +706,8 @@
                 const password = document.getElementById('accPassword').value;
 
                 const newAccount = {
-                    name, email, imap, smtp,
+                    name, email, imap, smtp, password, // 將密碼存入 Firebase 以便後續向 Vercel 請求
                     createdAt: Date.now()
-                    // Password generally shouldn't be stored plain text, but for this frontend demo logic it is stored in private firebase collection.
                 };
 
                 try {
@@ -711,9 +715,6 @@
                     showToast("帳號新增成功！");
                     document.getElementById('addAccountForm').reset();
                     
-                    // Generate Mock Emails for the new account so the UI isn't empty
-                    this.generateMockEmails(docRef.id, email);
-
                     if (!state.selectedAccountId) {
                         this.selectAccount(docRef.id);
                     }
@@ -724,16 +725,13 @@
             },
 
             removeAccount: async function(accountId) {
-                if (!user || !confirm("確定要移除此信箱連線嗎？相關的系統內紀錄也會一併清理。")) return;
+                if (!user || !confirm("確定要移除此信箱連線嗎？相關的設定也會一併清除。")) return;
                 try {
-                    // 1. Delete account
+                    // 刪除 Firebase 中的帳號紀錄
                     await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', accountId));
                     
-                    // 2. Client-side trigger to delete associated emails (Note: in a real app this should be a cloud function to avoid massive client-side queries, but for demo we do it here if list is small, or we just rely on memory filter. To adhere strictly to rules, we won't delete them from DB right now to avoid complex queries, just let the UI filter ignore them. For a complete cleanup, you'd iterate `state.emails`).
-                    const emailsToDelete = state.emails.filter(e => e.accountId === accountId);
-                    for (const email of emailsToDelete) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'emails', email.id));
-                    }
+                    // 清除狀態中的信件
+                    state.emails = state.emails.filter(e => e.accountId !== accountId);
 
                     if (state.selectedAccountId === accountId) {
                         this.selectAccount(null);
@@ -742,40 +740,6 @@
                 } catch (e) {
                     console.error("Remove account error", e);
                     showToast("移除失敗");
-                }
-            },
-
-            generateMockEmails: async function(accountId, recipientEmail) {
-                const mockEmails = [
-                    {
-                        accountId: accountId, folder: 'inbox',
-                        sender: 'system@omnimail.com', senderName: 'OmniMail 團隊',
-                        recipient: recipientEmail, subject: '歡迎使用 OmniMail 整合系統！',
-                        body: '您好！\n\n感謝您設定 OmniMail。這是一封系統自動發送的測試信件。\n\n目前這是一個基於 Firebase 的前端展示系統，所有的信件、設定都安全地儲存在您的專屬資料庫空間中。您可以在這裡測試收發信件、刪除、切換資料夾等功能。\n\n祝您使用愉快！',
-                        bodySnippet: '您好！感謝您設定 OmniMail。這是一封系統...',
-                        timestamp: Date.now() - 1000 * 60 * 5, read: false
-                    },
-                    {
-                        accountId: accountId, folder: 'inbox',
-                        sender: 'news@github.com', senderName: 'GitHub',
-                        recipient: recipientEmail, subject: 'Your weekly GitHub digest',
-                        body: 'Here is what happened this week on GitHub...\n\n- New repositories trending.\n- Updates to your starred projects.',
-                        bodySnippet: 'Here is what happened this week on GitHub...',
-                        timestamp: Date.now() - 1000 * 60 * 60 * 24, read: true
-                    },
-                    {
-                        accountId: accountId, folder: 'inbox',
-                        sender: 'boss@company.com', senderName: '經理',
-                        recipient: recipientEmail, subject: '下週專案會議進度確認',
-                        body: '團隊好：\n\n提醒大家下週一早上的專案會議，請先準備好各自負責模組的簡報資料。\n謝謝。',
-                        bodySnippet: '團隊好：提醒大家下週一早上的專案會議...',
-                        timestamp: Date.now() - 1000 * 60 * 60 * 48, read: false
-                    }
-                ];
-
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'emails');
-                for (const email of mockEmails) {
-                    await addDoc(colRef, email);
                 }
             }
         };
