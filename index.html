@@ -327,15 +327,51 @@
                     document.getElementById('appContainer').classList.remove('hidden');
                     lucide.createIcons();
                 }, (error) => console.error("Accounts listener error:", error));
+            },
 
-                // Listen to ALL emails (Filter in memory per Rule 2)
-                const emailsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'emails');
-                onSnapshot(emailsRef, (snapshot) => {
-                    state.emails = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                                         .sort((a, b) => b.timestamp - a.timestamp); // Sort by date descending
-                    this.renderEmailList();
-                    this.updateUnreadBadges();
-                }, (error) => console.error("Emails listener error:", error));
+            fetchRealEmails: async function() {
+                if (!state.selectedAccountId) return;
+                
+                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                if (!activeAcc) return;
+
+                document.getElementById('emailList').innerHTML = '<div class="p-8 text-center text-gray-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500"></i><p>正在透過 Vercel 從伺服器接收真實信件...</p></div>';
+                document.getElementById('emailList').classList.remove('hidden');
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('noAccountState').classList.add('hidden');
+                lucide.createIcons();
+
+                try {
+                    // 使用您的 Vercel API 網址
+                    const API_URL = 'https://webmail-hywqps1kh-lighminges-projects.vercel.app/api/emails'; 
+
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user: activeAcc.email,
+                            pass: activeAcc.password,
+                            imapHost: activeAcc.imap
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        // 保留除了 inbox 以外的信件快取 (例如剛寄出的信件)，並載入最新的 inbox 信件
+                        const otherEmails = state.emails.filter(e => e.folder !== 'inbox');
+                        const fetchedInbox = data.emails.map(e => ({ ...e, accountId: activeAcc.id, folder: 'inbox' }));
+                        state.emails = [...otherEmails, ...fetchedInbox];
+                        
+                        this.renderEmailList();
+                        this.updateUnreadBadges();
+                    } else {
+                        showToast("收信失敗: " + data.error);
+                        document.getElementById('emailList').innerHTML = `<div class="p-8 text-center text-red-500"><p>收信失敗: ${data.error}</p></div>`;
+                    }
+                } catch (e) {
+                    showToast("無法連接到郵件伺服器");
+                    document.getElementById('emailList').innerHTML = '<div class="p-8 text-center text-red-500"><p>無法連接到後端 API，請確認 Vercel 伺服器狀態。</p></div>';
+                }
             },
 
             // --- UI Rendering ---
@@ -424,8 +460,12 @@
                 state.selectedAccountId = accountId;
                 document.getElementById('accountSelect').value = accountId || '';
                 this.closeEmail();
-                this.renderEmailList();
-                this.updateUnreadBadges();
+                if (accountId) {
+                    this.fetchRealEmails();
+                } else {
+                    this.renderEmailList();
+                    this.updateUnreadBadges();
+                }
             },
 
             setFolder: function(folder) {
@@ -543,27 +583,56 @@
                 const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
 
                 if (!to) { showToast("請輸入收件者"); return; }
-
-                const newEmail = {
-                    accountId: state.selectedAccountId,
-                    folder: 'sent',
-                    sender: activeAcc.email,
-                    senderName: activeAcc.name,
-                    recipient: to,
-                    subject: subject,
-                    body: body,
-                    bodySnippet: body.substring(0, 50).replace(/\n/g, ' '),
-                    timestamp: Date.now(),
-                    read: true // Sent emails are considered read
-                };
-
+                
+                showToast("正在傳送郵件...");
+                
                 try {
-                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'emails'), newEmail);
-                    showToast("郵件已傳送 (模擬)");
-                    this.closeCompose();
+                    // 使用您的 Vercel API 網址
+                    const API_URL = 'https://webmail-hywqps1kh-lighminges-projects.vercel.app/api/send';
+
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user: activeAcc.email,
+                            pass: activeAcc.password,
+                            to: to,
+                            subject: subject,
+                            text: body,
+                            smtpHost: activeAcc.smtp
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        showToast("郵件已成功傳送！");
+                        
+                        // 將寄出的信件直接加進本地暫存區，使其能立刻顯示在寄件匣中
+                        const newEmail = {
+                            id: 'sent-' + Date.now(),
+                            accountId: state.selectedAccountId,
+                            folder: 'sent',
+                            sender: activeAcc.email,
+                            senderName: activeAcc.name,
+                            recipient: to,
+                            subject: subject,
+                            body: body,
+                            bodySnippet: body.substring(0, 50).replace(/\n/g, ' '),
+                            timestamp: Date.now(),
+                            read: true
+                        };
+                        state.emails.push(newEmail);
+                        
+                        this.closeCompose();
+                        if (state.currentFolder === 'sent') {
+                            this.renderEmailList();
+                        }
+                    } else {
+                        showToast("傳送失敗: " + data.error);
+                    }
                 } catch (e) {
                     console.error("Send error", e);
-                    showToast("傳送失敗");
+                    showToast("無法連接到郵件伺服器");
                 }
             },
 
