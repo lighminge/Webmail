@@ -342,7 +342,6 @@
                 lucide.createIcons();
 
                 try {
-                    // 使用您的 Vercel API 網址
                     const API_URL = 'https://webmail-hywqps1kh-lighminges-projects.vercel.app/api/emails'; 
 
                     const response = await fetch(API_URL, {
@@ -355,9 +354,14 @@
                         })
                     });
                     
+                    // 新增：如果 Vercel 回傳 500/504 等 HTTP 錯誤，先解析文字錯誤
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`伺服器回應 ${response.status}: ${errorText.substring(0, 100)}...`);
+                    }
+
                     const data = await response.json();
                     if (data.success) {
-                        // 保留除了 inbox 以外的信件快取 (例如剛寄出的信件)，並載入最新的 inbox 信件
                         const otherEmails = state.emails.filter(e => e.folder !== 'inbox');
                         const fetchedInbox = data.emails.map(e => ({ ...e, accountId: activeAcc.id, folder: 'inbox' }));
                         state.emails = [...otherEmails, ...fetchedInbox];
@@ -366,11 +370,20 @@
                         this.updateUnreadBadges();
                     } else {
                         showToast("收信失敗: " + data.error);
-                        document.getElementById('emailList').innerHTML = `<div class="p-8 text-center text-red-500"><p>收信失敗: ${data.error}</p></div>`;
+                        document.getElementById('emailList').innerHTML = `<div class="p-8 text-center text-red-500"><p>收信邏輯失敗: ${data.error}</p></div>`;
                     }
                 } catch (e) {
+                    console.error("Fetch 錯誤詳情:", e);
                     showToast("無法連接到郵件伺服器");
-                    document.getElementById('emailList').innerHTML = '<div class="p-8 text-center text-red-500"><p>無法連接到後端 API，請確認 Vercel 伺服器狀態。</p></div>';
+                    document.getElementById('emailList').innerHTML = `
+                        <div class="p-8 text-center text-red-500 flex flex-col items-center">
+                            <i data-lucide="alert-circle" class="w-10 h-10 mb-2"></i>
+                            <p class="font-bold">無法連接到後端 API</p>
+                            <p class="text-sm mt-2 max-w-md break-all">${e.message}</p>
+                            <p class="text-xs text-gray-500 mt-4">建議按 F12 打開開發者工具的 Console 查看詳細錯誤</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
                 }
             },
 
@@ -587,7 +600,6 @@
                 showToast("正在傳送郵件...");
                 
                 try {
-                    // 使用您的 Vercel API 網址
                     const API_URL = 'https://webmail-hywqps1kh-lighminges-projects.vercel.app/api/send';
 
                     const response = await fetch(API_URL, {
@@ -603,11 +615,16 @@
                         })
                     });
 
+                    // 新增：捕捉伺服器非 200 狀態碼的錯誤
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`伺服器回應 ${response.status}: ${errorText}`);
+                    }
+
                     const data = await response.json();
                     if (data.success) {
                         showToast("郵件已成功傳送！");
                         
-                        // 將寄出的信件直接加進本地暫存區，使其能立刻顯示在寄件匣中
                         const newEmail = {
                             id: 'sent-' + Date.now(),
                             accountId: state.selectedAccountId,
@@ -633,6 +650,7 @@
                 } catch (e) {
                     console.error("Send error", e);
                     showToast("無法連接到郵件伺服器");
+                    alert(`寄信發生錯誤：\n${e.message}\n\n請按 F12 檢查 Console 紀錄。`);
                 }
             },
 
