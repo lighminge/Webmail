@@ -252,8 +252,10 @@
         const defaultAppId = 'omni-webmail-system';
         const appId = typeof __app_id !== 'undefined' ? __app_id : defaultAppId;
 
-        // Vercel API 基礎網址
-        const VERCEL_API_BASE = 'https://webmail-api-git-main-lighminges-projects.vercel.app';
+        // =========================================================================
+        // 【關鍵修改】: 將 Vercel API 網址換成「去掉 git-main」的正式 Production 網址
+        // =========================================================================
+        const VERCEL_API_BASE = 'https://webmail-api-lighminges-projects.vercel.app';
 
         let appInstance, auth, db, user;
 
@@ -362,6 +364,11 @@
 
                 try {
                     log(`目標 API 網址: <span class="text-white">${VERCEL_API_BASE}</span>`);
+                    
+                    if (VERCEL_API_BASE.includes('-git-')) {
+                        log(`⚠ 【警告】您目前使用的是包含 "-git-" 的預覽網址。Vercel 預設會阻擋 API 請求。請改用 Production 網址。`, false, true);
+                    }
+
                     log("----------------------------------------");
                     log("【測試 1】發送基礎 GET 請求 (測試伺服器是否存活)...");
                     
@@ -414,8 +421,8 @@
                 } catch (e) {
                     log(`❌ 【致命錯誤】${e.message}`, true);
                     if (e.message.includes('Failed to fetch') || e.message.includes('攔截')) {
-                        log(`💡 【最終結論】您的連線在「離開瀏覽器」的那一瞬間就被殺死了。Vercel 根本沒有收到請求。`, true);
-                        log(`可能原因：<br>1. 您的防毒軟體或防火牆阻擋了 API 網址。<br>2. 您的瀏覽器擴充功能 (如 AdBlocker) 攔截了請求。<br>3. 公司/學校網路限制。<br>👉 解法：請嘗試使用手機的 4G/5G 網路，或是完全乾淨的無痕視窗測試。`, true);
+                        log(`💡 【最終結論】您的連線被 Vercel 的「預覽版安全鎖 (Vercel Authentication)」或是瀏覽器擋下了。`, true);
+                        log(`👉 解法：請至 Vercel 控制台找到「正式版 Domains」(通常是不含 git-main 的網址) 並替換，或是進入 Settings 關閉 Vercel Authentication。`, true);
                     }
                 }
             },
