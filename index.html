@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>整合式 Webmail 系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen overflow-hidden flex flex-col">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+        <i data-lucide="loader-2" class="w-10 h-10 animate-spin text-blue-600 mb-4"></i>
+        <p class="text-gray-600 font-medium">系統載入中，請稍候...</p>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="appContainer" class="flex flex-1 h-full hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+            <!-- Brand -->
+            <div class="h-16 flex items-center px-6 border-b border-gray-200">
+                <i data-lucide="mail" class="text-blue-600 mr-2"></i>
+                <h1 class="text-xl font-bold text-gray-800">OmniMail</h1>
+            </div>
+
+            <!-- Account Selector -->
+            <div class="p-4 border-b border-gray-200">
+                <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">目前帳號</label>
+                <select id="accountSelect" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                    <option value="">載入中...</option>
+                </select>
+                <button id="btnOpenSettings" class="mt-2 w-full text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center py-1">
+                    <i data-lucide="settings" class="w-3 h-3 mr-1"></i> 管理/新增帳號
+                </button>
+            </div>
+
+            <!-- Compose Button -->
+            <div class="p-4">
+                <button id="btnCompose" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-center transition">
+                    <i data-lucide="pen-line" class="w-5 h-5 mr-2"></i> 撰寫郵件
+                </button>
+            </div>
+
+            <!-- Folders -->
+            <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+                <a href="#" onclick="app.setFolder('inbox')" id="nav-inbox" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-700">
+                    <i data-lucide="inbox" class="w-5 h-5 mr-3"></i> 收件匣
+                    <span id="badge-inbox" class="ml-auto bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs hidden">0</span>
+                </a>
+                <a href="#" onclick="app.setFolder('sent')" id="nav-sent" class="nav-item flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100">
+                    <i data-lucide="send" class="w-5 h-5 mr-3"></i> 寄件匣
+                </a>
+                <a href="#" onclick="app.setFolder('drafts')" id="nav-drafts" class="nav-item flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100">
+                    <i data-lucide="file" class="w-5 h-5 mr-3"></i> 草稿
+                </a>
+                <a href="#" onclick="app.setFolder('trash')" id="nav-trash" class="nav-item flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100">
+                    <i data-lucide="trash-2" class="w-5 h-5 mr-3"></i> 垃圾桶
+                </a>
+            </nav>
+            
+            <!-- User Info -->
+            <div class="p-4 border-t border-gray-200 text-xs text-gray-500">
+                <div class="flex items-center">
+                    <i data-lucide="user" class="w-4 h-4 mr-2"></i>
+                    <span id="userIdDisplay" class="truncate">User ID</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col bg-white overflow-hidden">
+            <!-- Header -->
+            <header class="h-16 flex items-center justify-between px-6 border-b border-gray-200 flex-shrink-0">
+                <h2 id="currentFolderTitle" class="text-xl font-semibold text-gray-800 capitalize">收件匣</h2>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" placeholder="搜尋郵件 (純UI展示)..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64">
+                    </div>
+                </div>
+            </header>
+
+            <!-- dynamic views container -->
+            <div id="viewContainer" class="flex-1 overflow-hidden relative">
+                
+                <!-- Email List View -->
+                <div id="emailListView" class="absolute inset-0 overflow-y-auto">
+                    <ul id="emailList" class="divide-y divide-gray-200">
+                        <!-- Email Items will be injected here -->
+                    </ul>
+                    <div id="emptyState" class="hidden h-full flex flex-col items-center justify-center text-gray-500">
+                        <i data-lucide="inbox" class="w-16 h-16 mb-4 text-gray-300"></i>
+                        <p class="text-lg font-medium">此資料夾沒有郵件</p>
+                    </div>
+                    <div id="noAccountState" class="hidden h-full flex flex-col items-center justify-center text-gray-500">
+                        <i data-lucide="settings" class="w-16 h-16 mb-4 text-gray-300"></i>
+                        <p class="text-lg font-medium">請先新增並選擇一個信箱帳號</p>
+                        <button onclick="app.openSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">前往設定</button>
+                    </div>
+                </div>
+
+                <!-- Email Detail View -->
+                <div id="emailDetailView" class="absolute inset-0 bg-white hidden flex flex-col">
+                    <div class="h-14 border-b border-gray-200 flex items-center px-4 space-x-2 flex-shrink-0 bg-gray-50">
+                        <button onclick="app.closeEmail()" class="p-2 hover:bg-gray-200 rounded-full text-gray-600 transition" title="返回">
+                            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                        </button>
+                        <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                        <button onclick="app.deleteCurrentEmail()" class="p-2 hover:bg-gray-200 rounded-full text-gray-600 transition" title="刪除">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="app.openCompose(true)" class="p-2 hover:bg-gray-200 rounded-full text-gray-600 transition" title="回覆">
+                            <i data-lucide="reply" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-8">
+                        <h1 id="detailSubject" class="text-2xl font-bold text-gray-900 mb-6">主旨</h1>
+                        <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg mr-4" id="detailAvatar">A</div>
+                                <div>
+                                    <div class="font-semibold text-gray-900" id="detailSenderName">寄件者名稱</div>
+                                    <div class="text-sm text-gray-500" id="detailSenderEmail">&lt;sender@example.com&gt;</div>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500" id="detailDate">日期時間</div>
+                        </div>
+                        <div class="prose max-w-none text-gray-800" id="detailBody">
+                            <!-- 內容 -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Compose Modal -->
+    <div id="composeModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-gray-800" id="composeTitle">撰寫新郵件</h3>
+                <button onclick="app.closeCompose()" class="text-gray-500 hover:text-gray-800">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 flex-1 flex flex-col space-y-3">
+                <div class="flex items-center border-b border-gray-200 pb-2">
+                    <span class="text-gray-500 w-16 text-sm">收件者</span>
+                    <input type="text" id="composeTo" class="flex-1 outline-none text-sm" placeholder="example@domain.com">
+                </div>
+                <div class="flex items-center border-b border-gray-200 pb-2">
+                    <span class="text-gray-500 w-16 text-sm">主旨</span>
+                    <input type="text" id="composeSubject" class="flex-1 outline-none text-sm" placeholder="請輸入主旨">
+                </div>
+                <textarea id="composeBody" class="flex-1 w-full outline-none resize-none pt-2 text-sm text-gray-800 h-64" placeholder="撰寫您的郵件..."></textarea>
+            </div>
+            <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                <button onclick="app.sendEmail()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition flex items-center">
+                    <i data-lucide="send" class="w-4 h-4 mr-2"></i> 傳送
+                </button>
+                <button onclick="app.closeCompose()" class="text-gray-500 hover:text-gray-800 text-sm">捨棄</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings/Accounts Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-gray-800 text-lg">帳號設定</h3>
+                <button onclick="app.closeSettings()" class="text-gray-500 hover:text-gray-800">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-3 uppercase">已連結的帳號</h4>
+                    <ul id="settingsAccountList" class="space-y-2">
+                        <!-- Accounts here -->
+                    </ul>
+                </div>
+
+                <hr class="my-6 border-gray-200">
+
+                <h4 class="text-sm font-semibold text-gray-600 mb-3 uppercase">新增信箱連線</h4>
+                <form id="addAccountForm" class="space-y-4" onsubmit="event.preventDefault(); app.addAccount();">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">自訂名稱 (如: 公司信箱)</label>
+                        <input type="text" id="accName" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email 地址</label>
+                        <input type="email" id="accEmail" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">IMAP 伺服器 (收信)</label>
+                            <input type="text" id="accImap" placeholder="imap.gmail.com" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">SMTP 伺服器 (寄信)</label>
+                            <input type="text" id="accSmtp" placeholder="smtp.gmail.com" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">密碼 / 應用程式密碼</label>
+                        <input type="password" id="accPassword" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <p class="text-xs text-gray-500 mt-1">註：此處密碼僅供 Firebase 儲存測試用。</p>
+                    </div>
+                    <button type="submit" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-2 rounded-lg transition mt-2">
+                        儲存並連結
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg transform transition-transform duration-300 translate-y-20 opacity-0 z-50">
+        Message
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration setup
+        const firebaseConfig = {
+            apiKey: "AIzaSyBLHWC6grK-mfDATUY76AX1GTce5iHDi30",
+            authDomain: "github-webmail.firebaseapp.com",
+            projectId: "github-webmail",
+            storageBucket: "github-webmail.firebasestorage.app",
+            messagingSenderId: "76586089939",
+            appId: "1:76586089939:web:1300004d62838a077cc326",
+            measurementId: "G-7B61X3JLMY"
+        };
+        const defaultAppId = 'omni-webmail-system';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : defaultAppId;
+
+        let appInstance, auth, db, user;
+
+        // Global State
+        const state = {
+            accounts: [],
+            selectedAccountId: null,
+            emails: [], // All fetched emails for current user
+            currentFolder: 'inbox',
+            viewingEmail: null
+        };
+
+        // Initialize Firebase
+        try {
+            appInstance = initializeApp(firebaseConfig);
+            auth = getAuth(appInstance);
+            db = getFirestore(appInstance);
+        } catch (error) {
+            console.error("Firebase init error:", error);
+            showToast("資料庫初始化失敗");
+        }
+
+        // App Logic encapsulation
+        window.app = {
+            init: async function() {
+                try {
+                    // Auth First Rule
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } catch (tokenErr) {
+                            console.warn("自訂 Token 驗證失敗 (可能是因為更換了 Firebase Config)，改以匿名方式登入:", tokenErr);
+                            await signInAnonymously(auth);
+                        }
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    onAuthStateChanged(auth, (currentUser) => {
+                        if (currentUser) {
+                            user = currentUser;
+                            document.getElementById('userIdDisplay').textContent = user.uid.substring(0,8) + '...';
+                            this.setupListeners();
+                        }
+                    });
+                } catch (e) {
+                    console.error("Auth error", e);
+                    showToast("登入失敗");
+                }
+                
+                // Event Listeners
+                document.getElementById('accountSelect').addEventListener('change', (e) => {
+                    this.selectAccount(e.target.value);
+                });
+                document.getElementById('btnOpenSettings').addEventListener('click', () => this.openSettings());
+                document.getElementById('btnCompose').addEventListener('click', () => this.openCompose());
+            },
+
+            setupListeners: function() {
+                if (!user) return;
+
+                // Listen to accounts
+                const accountsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'accounts');
+                onSnapshot(accountsRef, (snapshot) => {
+                    state.accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.renderAccountSelect();
+                    this.renderSettingsAccounts();
+
+                    // Auto select first account if none selected
+                    if (state.accounts.length > 0 && !state.selectedAccountId) {
+                        this.selectAccount(state.accounts[0].id);
+                    } else if (state.accounts.length === 0) {
+                        this.selectAccount(null);
+                    }
+                    
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('appContainer').classList.remove('hidden');
+                    lucide.createIcons();
+                }, (error) => console.error("Accounts listener error:", error));
+
+                // Listen to ALL emails (Filter in memory per Rule 2)
+                const emailsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'emails');
+                onSnapshot(emailsRef, (snapshot) => {
+                    state.emails = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                         .sort((a, b) => b.timestamp - a.timestamp); // Sort by date descending
+                    this.renderEmailList();
+                    this.updateUnreadBadges();
+                }, (error) => console.error("Emails listener error:", error));
+            },
+
+            // --- UI Rendering ---
+
+            renderAccountSelect: function() {
+                const select = document.getElementById('accountSelect');
+                select.innerHTML = '';
+                if (state.accounts.length === 0) {
+                    select.innerHTML = '<option value="">(無已設定的帳號)</option>';
+                } else {
+                    state.accounts.forEach(acc => {
+                        const opt = document.createElement('option');
+                        opt.value = acc.id;
+                        opt.textContent = `${acc.name} (${acc.email})`;
+                        if (acc.id === state.selectedAccountId) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                }
+            },
+
+            renderEmailList: function() {
+                const listEl = document.getElementById('emailList');
+                const emptyState = document.getElementById('emptyState');
+                const noAccState = document.getElementById('noAccountState');
+                listEl.innerHTML = '';
+
+                if (!state.selectedAccountId) {
+                    listEl.classList.add('hidden');
+                    emptyState.classList.add('hidden');
+                    noAccState.classList.remove('hidden');
+                    return;
+                }
+                
+                noAccState.classList.add('hidden');
+
+                const filteredEmails = state.emails.filter(e => e.accountId === state.selectedAccountId && e.folder === state.currentFolder);
+
+                if (filteredEmails.length === 0) {
+                    listEl.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                } else {
+                    listEl.classList.remove('hidden');
+                    emptyState.classList.add('hidden');
+
+                    filteredEmails.forEach(email => {
+                        const li = document.createElement('li');
+                        li.className = `p-4 hover:bg-gray-50 cursor-pointer flex items-start space-x-4 transition ${email.read ? 'bg-white text-gray-600' : 'bg-blue-50/30 text-gray-900 font-semibold'}`;
+                        li.onclick = () => this.viewEmail(email);
+
+                        const date = new Date(email.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
+                        const avatarLetter = (email.senderName || email.sender || 'A').charAt(0).toUpperCase();
+
+                        li.innerHTML = `
+                            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                                ${avatarLetter}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between mb-1">
+                                    <p class="text-sm truncate w-3/4">${email.senderName || email.sender}</p>
+                                    <p class="text-xs text-gray-500 flex-shrink-0">${date}</p>
+                                </div>
+                                <p class="text-sm truncate mb-1">${email.subject || '(無主旨)'}</p>
+                                <p class="text-xs text-gray-500 truncate font-normal">${email.bodySnippet || '...'}</p>
+                            </div>
+                        `;
+                        listEl.appendChild(li);
+                    });
+                }
+            },
+
+            updateUnreadBadges: function() {
+                if (!state.selectedAccountId) return;
+                const unreadInbox = state.emails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox' && !e.read).length;
+                const badge = document.getElementById('badge-inbox');
+                if (unreadInbox > 0) {
+                    badge.textContent = unreadInbox;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            },
+
+            // --- Actions ---
+
+            selectAccount: function(accountId) {
+                state.selectedAccountId = accountId;
+                document.getElementById('accountSelect').value = accountId || '';
+                this.closeEmail();
+                this.renderEmailList();
+                this.updateUnreadBadges();
+            },
+
+            setFolder: function(folder) {
+                state.currentFolder = folder;
+                
+                // Update UI Navigation
+                document.querySelectorAll('.nav-item').forEach(el => {
+                    el.classList.remove('bg-blue-50', 'text-blue-700');
+                    el.classList.add('text-gray-700', 'hover:bg-gray-100');
+                });
+                const activeNav = document.getElementById(`nav-${folder}`);
+                if(activeNav) {
+                    activeNav.classList.remove('text-gray-700', 'hover:bg-gray-100');
+                    activeNav.classList.add('bg-blue-50', 'text-blue-700');
+                }
+
+                const titles = { 'inbox': '收件匣', 'sent': '寄件匣', 'drafts': '草稿', 'trash': '垃圾桶' };
+                document.getElementById('currentFolderTitle').textContent = titles[folder];
+
+                this.closeEmail();
+                this.renderEmailList();
+            },
+
+            viewEmail: async function(email) {
+                if (!email) return;
+                state.viewingEmail = email;
+
+                // Mark as read if in inbox
+                if (!email.read && email.folder === 'inbox') {
+                    try {
+                        const emailRef = doc(db, 'artifacts', appId, 'users', user.uid, 'emails', email.id);
+                        await updateDoc(emailRef, { read: true });
+                    } catch (e) { console.error("Error updating read status", e); }
+                }
+
+                document.getElementById('emailListView').classList.add('hidden');
+                document.getElementById('emailDetailView').classList.remove('hidden');
+
+                const date = new Date(email.timestamp).toLocaleString('zh-TW');
+                const avatarLetter = (email.senderName || email.sender || 'A').charAt(0).toUpperCase();
+
+                document.getElementById('detailSubject').textContent = email.subject || '(無主旨)';
+                document.getElementById('detailSenderName').textContent = email.senderName || email.sender.split('@')[0];
+                document.getElementById('detailSenderEmail').textContent = `<${email.sender}>`;
+                document.getElementById('detailDate').textContent = date;
+                document.getElementById('detailAvatar').textContent = avatarLetter;
+                
+                // Simple body render (escaping html to be safe, converting newlines)
+                const safeBody = email.body.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+                document.getElementById('detailBody').innerHTML = safeBody;
+                
+                lucide.createIcons();
+            },
+
+            closeEmail: function() {
+                state.viewingEmail = null;
+                document.getElementById('emailListView').classList.remove('hidden');
+                document.getElementById('emailDetailView').classList.add('hidden');
+            },
+
+            deleteCurrentEmail: async function() {
+                if (!state.viewingEmail || !user) return;
+                const emailRef = doc(db, 'artifacts', appId, 'users', user.uid, 'emails', state.viewingEmail.id);
+                
+                try {
+                    if (state.viewingEmail.folder === 'trash') {
+                        // Permanently delete
+                        await deleteDoc(emailRef);
+                        showToast("郵件已永久刪除");
+                    } else {
+                        // Move to trash
+                        await updateDoc(emailRef, { folder: 'trash' });
+                        showToast("郵件已移至垃圾桶");
+                    }
+                    this.closeEmail();
+                } catch (e) {
+                    console.error("Delete error", e);
+                    showToast("刪除失敗");
+                }
+            },
+
+            // --- Compose Logic ---
+
+            openCompose: function(isReply = false) {
+                if (!state.selectedAccountId) {
+                    showToast("請先新增並選擇一個信箱帳號！");
+                    return;
+                }
+                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                
+                document.getElementById('composeTo').value = '';
+                document.getElementById('composeSubject').value = '';
+                document.getElementById('composeBody').value = '';
+                document.getElementById('composeTitle').textContent = `使用 ${activeAcc.email} 撰寫`;
+
+                if (isReply && state.viewingEmail) {
+                    document.getElementById('composeTo').value = state.viewingEmail.sender;
+                    document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
+                    document.getElementById('composeBody').value = `\n\n\n--- 原始郵件 ---\n日期: ${new Date(state.viewingEmail.timestamp).toLocaleString()}\n寄件者: ${state.viewingEmail.sender}\n\n${state.viewingEmail.body}`;
+                }
+
+                document.getElementById('composeModal').classList.remove('hidden');
+            },
+
+            closeCompose: function() {
+                document.getElementById('composeModal').classList.add('hidden');
+            },
+
+            sendEmail: async function() {
+                if (!state.selectedAccountId || !user) return;
+                
+                const to = document.getElementById('composeTo').value.trim();
+                const subject = document.getElementById('composeSubject').value.trim();
+                const body = document.getElementById('composeBody').value;
+                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+
+                if (!to) { showToast("請輸入收件者"); return; }
+
+                const newEmail = {
+                    accountId: state.selectedAccountId,
+                    folder: 'sent',
+                    sender: activeAcc.email,
+                    senderName: activeAcc.name,
+                    recipient: to,
+                    subject: subject,
+                    body: body,
+                    bodySnippet: body.substring(0, 50).replace(/\n/g, ' '),
+                    timestamp: Date.now(),
+                    read: true // Sent emails are considered read
+                };
+
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'emails'), newEmail);
+                    showToast("郵件已傳送 (模擬)");
+                    this.closeCompose();
+                } catch (e) {
+                    console.error("Send error", e);
+                    showToast("傳送失敗");
+                }
+            },
+
+            // --- Settings Logic ---
+
+            openSettings: function() {
+                document.getElementById('settingsModal').classList.remove('hidden');
+                this.renderSettingsAccounts();
+            },
+
+            closeSettings: function() {
+                document.getElementById('settingsModal').classList.add('hidden');
+                document.getElementById('addAccountForm').reset();
+            },
+
+            renderSettingsAccounts: function() {
+                const list = document.getElementById('settingsAccountList');
+                list.innerHTML = '';
+                if (state.accounts.length === 0) {
+                    list.innerHTML = '<p class="text-sm text-gray-500">尚無帳號設定。</p>';
+                    return;
+                }
+                state.accounts.forEach(acc => {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center p-3 border border-gray-200 rounded-lg bg-white";
+                    li.innerHTML = `
+                        <div>
+                            <div class="font-medium text-gray-800 text-sm">${acc.name}</div>
+                            <div class="text-xs text-gray-500">${acc.email}</div>
+                        </div>
+                        <button onclick="app.removeAccount('${acc.id}')" class="text-red-500 hover:text-red-700 p-1" title="刪除連線">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    `;
+                    list.appendChild(li);
+                });
+                lucide.createIcons();
+            },
+
+            addAccount: async function() {
+                if (!user) return;
+                const name = document.getElementById('accName').value;
+                const email = document.getElementById('accEmail').value;
+                const imap = document.getElementById('accImap').value;
+                const smtp = document.getElementById('accSmtp').value;
+                const password = document.getElementById('accPassword').value;
+
+                const newAccount = {
+                    name, email, imap, smtp,
+                    createdAt: Date.now()
+                    // Password generally shouldn't be stored plain text, but for this frontend demo logic it is stored in private firebase collection.
+                };
+
+                try {
+                    const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'accounts'), newAccount);
+                    showToast("帳號新增成功！");
+                    document.getElementById('addAccountForm').reset();
+                    
+                    // Generate Mock Emails for the new account so the UI isn't empty
+                    this.generateMockEmails(docRef.id, email);
+
+                    if (!state.selectedAccountId) {
+                        this.selectAccount(docRef.id);
+                    }
+                } catch (e) {
+                    console.error("Add account error", e);
+                    showToast("新增失敗");
+                }
+            },
+
+            removeAccount: async function(accountId) {
+                if (!user || !confirm("確定要移除此信箱連線嗎？相關的系統內紀錄也會一併清理。")) return;
+                try {
+                    // 1. Delete account
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', accountId));
+                    
+                    // 2. Client-side trigger to delete associated emails (Note: in a real app this should be a cloud function to avoid massive client-side queries, but for demo we do it here if list is small, or we just rely on memory filter. To adhere strictly to rules, we won't delete them from DB right now to avoid complex queries, just let the UI filter ignore them. For a complete cleanup, you'd iterate `state.emails`).
+                    const emailsToDelete = state.emails.filter(e => e.accountId === accountId);
+                    for (const email of emailsToDelete) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'emails', email.id));
+                    }
+
+                    if (state.selectedAccountId === accountId) {
+                        this.selectAccount(null);
+                    }
+                    showToast("帳號已移除");
+                } catch (e) {
+                    console.error("Remove account error", e);
+                    showToast("移除失敗");
+                }
+            },
+
+            generateMockEmails: async function(accountId, recipientEmail) {
+                const mockEmails = [
+                    {
+                        accountId: accountId, folder: 'inbox',
+                        sender: 'system@omnimail.com', senderName: 'OmniMail 團隊',
+                        recipient: recipientEmail, subject: '歡迎使用 OmniMail 整合系統！',
+                        body: '您好！\n\n感謝您設定 OmniMail。這是一封系統自動發送的測試信件。\n\n目前這是一個基於 Firebase 的前端展示系統，所有的信件、設定都安全地儲存在您的專屬資料庫空間中。您可以在這裡測試收發信件、刪除、切換資料夾等功能。\n\n祝您使用愉快！',
+                        bodySnippet: '您好！感謝您設定 OmniMail。這是一封系統...',
+                        timestamp: Date.now() - 1000 * 60 * 5, read: false
+                    },
+                    {
+                        accountId: accountId, folder: 'inbox',
+                        sender: 'news@github.com', senderName: 'GitHub',
+                        recipient: recipientEmail, subject: 'Your weekly GitHub digest',
+                        body: 'Here is what happened this week on GitHub...\n\n- New repositories trending.\n- Updates to your starred projects.',
+                        bodySnippet: 'Here is what happened this week on GitHub...',
+                        timestamp: Date.now() - 1000 * 60 * 60 * 24, read: true
+                    },
+                    {
+                        accountId: accountId, folder: 'inbox',
+                        sender: 'boss@company.com', senderName: '經理',
+                        recipient: recipientEmail, subject: '下週專案會議進度確認',
+                        body: '團隊好：\n\n提醒大家下週一早上的專案會議，請先準備好各自負責模組的簡報資料。\n謝謝。',
+                        bodySnippet: '團隊好：提醒大家下週一早上的專案會議...',
+                        timestamp: Date.now() - 1000 * 60 * 60 * 48, read: false
+                    }
+                ];
+
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'emails');
+                for (const email of mockEmails) {
+                    await addDoc(colRef, email);
+                }
+            }
+        };
+
+        // Utility Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            app.init();
+        });
+
+    </script>
+</body>
+</html>
