@@ -157,11 +157,29 @@
                     </button>
                 </div>
                 <div id="settingsListArea" class="space-y-4"></div>
+                
                 <div id="settingsFormArea" class="hidden mt-8 anime-card bg-white p-6">
                     <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2" id="settingsFormTitle">新增 Email 設定</h3>
                     <form id="accountForm" onsubmit="event.preventDefault(); app.saveAccount();" class="space-y-4">
                         <input type="hidden" id="accId">
+                        
+                        <!-- 【新增】快速帶入供應商與提示 -->
                         <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2 bg-yellow-100 p-3 rounded-lg border-2 border-gray-800 text-sm font-bold flex items-start">
+                                <i data-lucide="alert-circle" class="w-5 h-5 mr-2 text-yellow-600 shrink-0"></i>
+                                <p>提示：無論設定 Gmail 或 Yahoo，密碼欄位都「絕對不能」填寫您的網頁登入密碼！請務必前往信箱的安全設定中產生一組專屬的「應用程式密碼」貼入。</p>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block font-bold mb-1 text-blue-800">⚡ 快速帶入伺服器設定 (選填)</label>
+                                <select id="quickProvider" onchange="app.fillProviderSettings()" class="anime-input w-full bg-blue-50 cursor-pointer">
+                                    <option value="">-- 請選擇信箱供應商自動帶入 --</option>
+                                    <option value="gmail">Google (Gmail)</option>
+                                    <option value="yahoo">Yahoo Mail</option>
+                                    <option value="outlook">Outlook / Hotmail</option>
+                                    <option value="icloud">Apple iCloud</option>
+                                </select>
+                            </div>
+
                             <div>
                                 <label class="block font-bold mb-1">自訂名稱 (如: 公司信箱)</label>
                                 <input type="text" id="accName" required class="anime-input w-full">
@@ -171,7 +189,7 @@
                                 <input type="email" id="accEmail" required class="anime-input w-full">
                             </div>
                             <div>
-                                <label class="block font-bold mb-1">密碼 / 應用程式密碼</label>
+                                <label class="block font-bold mb-1">應用程式密碼</label>
                                 <input type="password" id="accPassword" required class="anime-input w-full">
                             </div>
                             <div>
@@ -311,7 +329,7 @@
                     <span class="text-xs md:text-sm">總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
                 </div>
                 <div class="flex-1 overflow-y-auto bg-white relative">
-                    <!-- 【修改】移除 divide-y 避免干擾左側邊框渲染 -->
+                    <!-- 移除 divide-y 避免干擾左側邊框渲染 -->
                     <ul id="wm-email-list" class="w-full"></ul>
                     <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400">
                         <i data-lucide="inbox" class="w-12 h-12 mb-2"></i>
@@ -342,7 +360,7 @@
                                         <button onclick="app.addSenderToContacts()" class="text-xs bg-green-100 border border-green-800 text-green-800 px-2 py-0.5 rounded hover:bg-green-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="加入通訊錄">
                                             <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i> 加入
                                         </button>
-                                        <!-- 【新增】刪除此信件按鈕 -->
+                                        <!-- 刪除此信件按鈕 -->
                                         <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
                                             <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
                                         </button>
@@ -460,7 +478,7 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
-        // 封裝公共資料節點 (跨瀏覽器/裝置共享，從最上層建立資料)
+        // 封裝公共資料節點
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -489,7 +507,6 @@
         window.app = {
             init: async function() {
                 try {
-                    // 強制執行匿名登入，免密碼直接取用公共資料
                     await signInAnonymously(auth);
 
                     onAuthStateChanged(auth, (currentUser) => {
@@ -560,12 +577,36 @@
                 lucide.createIcons();
             },
 
+            // === 快速帶入常用信箱設定 ===
+            fillProviderSettings: function() {
+                const provider = document.getElementById('quickProvider').value;
+                const imapEl = document.getElementById('accImap');
+                const smtpEl = document.getElementById('accSmtp');
+                const imapPortEl = document.getElementById('accImapPort');
+                const smtpPortEl = document.getElementById('accSmtpPort');
+
+                if (provider === 'gmail') {
+                    imapEl.value = 'imap.gmail.com'; smtpEl.value = 'smtp.gmail.com';
+                    imapPortEl.value = '993'; smtpPortEl.value = '465';
+                } else if (provider === 'yahoo') {
+                    imapEl.value = 'imap.mail.yahoo.com'; smtpEl.value = 'smtp.mail.yahoo.com';
+                    imapPortEl.value = '993'; smtpPortEl.value = '465';
+                } else if (provider === 'outlook') {
+                    imapEl.value = 'outlook.office365.com'; smtpEl.value = 'smtp.office365.com';
+                    imapPortEl.value = '993'; smtpPortEl.value = '465';
+                } else if (provider === 'icloud') {
+                    imapEl.value = 'imap.mail.me.com'; smtpEl.value = 'smtp.mail.me.com';
+                    imapPortEl.value = '993'; smtpPortEl.value = '465';
+                }
+            },
+
             toggleSettingsForm: function(show, accId = null) {
                 const formArea = document.getElementById('settingsFormArea');
                 const form = document.getElementById('accountForm');
                 if (show && formArea && form) {
                     formArea.classList.remove('hidden');
                     form.reset();
+                    document.getElementById('quickProvider').value = '';
                     if (accId) {
                         const acc = state.accounts.find(a => a.id === accId);
                         if (acc) {
@@ -877,7 +918,7 @@
                     
                 } catch (e) {
                     if (showLoadingUI && listEl) {
-                        listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>連線失敗，請檢查設定或 Vercel API</li>`;
+                        listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>連線失敗，可能是 Yahoo 阻擋或設定錯誤。</li>`;
                         lucide.createIcons();
                     }
                 }
@@ -954,8 +995,6 @@
                         const isSelected = state.selectedEmailIds.has(strId);
                         const isViewing = state.viewingEmail && state.viewingEmail.id === email.id;
                         
-                        // 動態決定信件列的背景與邊框樣式 
-                        // 【修正】使用獨立的 border-b 而不是 divide-y，徹底解決左側邊框渲染衝突問題
                         let bgClass = 'bg-white hover:bg-gray-50';
                         let borderLeftClass = 'border-l-transparent';
                         
@@ -1069,7 +1108,6 @@
                 document.getElementById('ctEmail').value = state.viewingEmail.sender || state.viewingEmail.recipient || '';
             },
             
-            // 【新增】刪除單獨預覽中的郵件功能
             deleteViewingEmail: async function() {
                 if (!state.viewingEmail) return;
                 const emailId = String(state.viewingEmail.id);
