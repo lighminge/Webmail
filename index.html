@@ -3,243 +3,443 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>整合式 Webmail 系統</title>
+    <title>OmniMail 手繪動漫風 Webmail</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Yomogi (手繪風) & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root {
+            --comic-border: #1f2937;
+        }
+        body { 
+            font-family: 'Yomogi', 'Noto Sans TC', 'Comic Sans MS', cursive, sans-serif;
+            background-color: #fdf6e3; 
+            /* 動漫網格背景 */
+            background-image: radial-gradient(#d5c2a5 2px, transparent 2px); 
+            background-size: 24px 24px;
+            color: #1f2937;
+        }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 手繪風元件 CSS */
+        .anime-card {
+            background: white;
+            border: 3px solid var(--comic-border);
+            border-radius: 8px 24px 8px 24px;
+            box-shadow: 5px 5px 0px var(--comic-border);
+            transition: all 0.2s ease-in-out;
+        }
+        .anime-card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0px var(--comic-border);
+        }
+        .anime-btn {
+            border: 2px solid var(--comic-border);
+            border-radius: 12px;
+            box-shadow: 3px 3px 0px var(--comic-border);
+            font-weight: bold;
+            transition: all 0.1s;
+        }
+        .anime-btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 0px 0px 0px var(--comic-border);
+        }
+        .anime-input {
+            border: 2px solid var(--comic-border);
+            border-radius: 8px;
+            background: white;
+            padding: 8px 12px;
+            outline: none;
+            box-shadow: 2px 2px 0px #d1d5db;
+            transition: all 0.2s;
+        }
+        .anime-input:focus {
+            box-shadow: 2px 2px 0px #fbbf24;
+            border-color: #d97706;
+        }
+        .anime-checkbox {
+            appearance: none;
+            width: 20px; height: 20px;
+            border: 2px solid var(--comic-border);
+            border-radius: 4px;
+            display: inline-block;
+            position: relative;
+            cursor: pointer;
+            background: white;
+        }
+        .anime-checkbox:checked {
+            background: #fcd34d;
+        }
+        .anime-checkbox:checked::after {
+            content: '✔';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            color: #1f2937;
+            font-weight: bold;
+        }
+        .view-hidden { display: none !important; }
     </style>
 </head>
-<body class="bg-gray-100 h-screen overflow-hidden flex flex-col">
+<body class="h-screen overflow-hidden flex flex-col">
 
     <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
-        <i data-lucide="loader-2" class="w-10 h-10 animate-spin text-blue-600 mb-4"></i>
-        <p class="text-gray-600 font-medium">系統載入中，請稍候...</p>
+    <div id="loadingOverlay" class="fixed inset-0 bg-[#fdf6e3] z-50 flex flex-col items-center justify-center">
+        <i data-lucide="loader-2" class="w-12 h-12 animate-spin text-orange-500 mb-4"></i>
+        <h2 class="text-2xl font-bold">系統載入中...</h2>
     </div>
 
-    <!-- Main App Container -->
-    <div id="appContainer" class="flex flex-1 h-full hidden">
-        
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-            <!-- Brand -->
-            <div class="h-16 flex items-center px-6 border-b border-gray-200">
-                <i data-lucide="mail" class="text-blue-600 mr-2"></i>
-                <h1 class="text-xl font-bold text-gray-800">OmniMail</h1>
-            </div>
+    <!-- 導覽列 (全域) -->
+    <header class="h-16 bg-white border-b-4 border-gray-800 flex items-center justify-between px-6 flex-shrink-0 z-10 relative">
+        <div class="flex items-center cursor-pointer" onclick="app.navigate('home')">
+            <i data-lucide="mail" class="text-orange-500 w-8 h-8 mr-2"></i>
+            <h1 class="text-3xl font-bold tracking-wider text-gray-800 mt-1">OmniMail</h1>
+        </div>
+        <div class="flex space-x-4">
+            <button onclick="app.navigate('settings')" class="anime-btn bg-pink-200 px-4 py-1.5 flex items-center text-sm">
+                <i data-lucide="settings" class="w-4 h-4 mr-1"></i> 信箱設定
+            </button>
+            <button onclick="app.navigate('contacts')" class="anime-btn bg-green-200 px-4 py-1.5 flex items-center text-sm">
+                <i data-lucide="users" class="w-4 h-4 mr-1"></i> 通訊錄
+            </button>
+            <button onclick="app.navigate('webmail')" class="anime-btn bg-blue-200 px-4 py-1.5 flex items-center text-sm">
+                <i data-lucide="inbox" class="w-4 h-4 mr-1"></i> Webmail
+            </button>
+        </div>
+    </header>
 
-            <!-- Account Selector -->
-            <div class="p-4 border-b border-gray-200">
-                <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">目前帳號</label>
-                <select id="accountSelect" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
-                    <option value="">載入中...</option>
-                </select>
-                <button id="btnOpenSettings" class="mt-2 w-full text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center py-1">
-                    <i data-lucide="settings" class="w-3 h-3 mr-1"></i> 管理/新增帳號
-                </button>
-            </div>
+    <!-- Main Container -->
+    <main class="flex-1 overflow-hidden relative">
 
-            <!-- Compose Button -->
-            <div class="p-4">
-                <button id="btnCompose" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-center transition">
-                    <i data-lucide="pen-line" class="w-5 h-5 mr-2"></i> 撰寫郵件
-                </button>
+        <!-- ================= VIEW: HOME (首頁) ================= -->
+        <div id="view-home" class="absolute inset-0 overflow-y-auto p-8 flex flex-col items-center justify-center">
+            <h2 class="text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎回來！請選擇作業項目</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
+                <!-- 設定卡片 -->
+                <div onclick="app.navigate('settings')" class="anime-card bg-pink-50 p-8 flex flex-col items-center cursor-pointer hover:bg-pink-100 text-center">
+                    <div class="w-24 h-24 bg-pink-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
+                        <i data-lucide="settings" class="w-12 h-12 text-pink-700"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Email 資料設定</h3>
+                    <p class="text-gray-600">管理您的 IMAP/SMTP 連線、密碼與自動檢查更新頻率。</p>
+                </div>
+                <!-- 通訊錄卡片 -->
+                <div onclick="app.navigate('contacts')" class="anime-card bg-green-50 p-8 flex flex-col items-center cursor-pointer hover:bg-green-100 text-center">
+                    <div class="w-24 h-24 bg-green-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
+                        <i data-lucide="book-user" class="w-12 h-12 text-green-700"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">寄件人通訊錄</h3>
+                    <p class="text-gray-600">管理聯絡人名稱、Email 與專屬備註事項。</p>
+                </div>
+                <!-- Webmail 卡片 -->
+                <div onclick="app.navigate('webmail')" class="anime-card bg-blue-50 p-8 flex flex-col items-center cursor-pointer hover:bg-blue-100 text-center">
+                    <div class="w-24 h-24 bg-blue-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
+                        <i data-lucide="send" class="w-12 h-12 text-blue-700"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Webmail 作業</h3>
+                    <p class="text-gray-600">收發信件、同步刪除、草稿管理與分割畫面瀏覽。</p>
+                </div>
             </div>
+        </div>
 
-            <!-- Folders -->
-            <nav class="flex-1 overflow-y-auto p-4 space-y-1">
-                <a href="#" onclick="app.setFolder('inbox')" id="nav-inbox" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-700">
-                    <i data-lucide="inbox" class="w-5 h-5 mr-3"></i> 收件匣
-                    <span id="badge-inbox" class="ml-auto bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs hidden">0</span>
-                </a>
-                <a href="#" onclick="app.setFolder('sent')" id="nav-sent" class="nav-item flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100">
-                    <i data-lucide="send" class="w-5 h-5 mr-3"></i> 寄件匣
-                </a>
-                <a href="#" onclick="app.setFolder('drafts')" id="nav-drafts" class="nav-item flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100">
-                    <i data-lucide="file" class="w-5 h-5 mr-3"></i> 草稿
-                </a>
-                <a href="#" onclick="app.setFolder('trash')" id="nav-trash" class="nav-item flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100">
-                    <i data-lucide="trash-2" class="w-5 h-5 mr-3"></i> 垃圾桶
-                </a>
-                
-                <!-- 【新增】網路診斷工具按鈕 -->
-                <div class="mt-8 border-t border-gray-200 pt-4 px-4">
-                     <button onclick="app.runNetworkDiagnostics()" class="w-full flex items-center px-3 py-2 text-xs font-medium text-red-600 rounded-md hover:bg-red-50 bg-red-50 border border-red-200 shadow-sm">
-                        <i data-lucide="stethoscope" class="w-4 h-4 mr-2"></i> 執行網路診斷
+        <!-- ================= VIEW: SETTINGS (信箱設定) ================= -->
+        <div id="view-settings" class="view-hidden absolute inset-0 overflow-y-auto p-8">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">Email 資料設定清單</h2>
+                    <button onclick="app.toggleSettingsForm(true)" class="anime-btn bg-yellow-300 px-4 py-2 flex items-center">
+                        <i data-lucide="plus" class="w-5 h-5 mr-1"></i> 新增帳號
                     </button>
                 </div>
-            </nav>
-            
-            <!-- User Info -->
-            <div class="p-4 border-t border-gray-200 text-xs text-gray-500">
-                <div class="flex items-center">
-                    <i data-lucide="user" class="w-4 h-4 mr-2"></i>
-                    <span id="userIdDisplay" class="truncate">User ID</span>
-                </div>
-            </div>
-        </aside>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 flex flex-col bg-white overflow-hidden">
-            <!-- Header -->
-            <header class="h-16 flex items-center justify-between px-6 border-b border-gray-200 flex-shrink-0">
-                <h2 id="currentFolderTitle" class="text-xl font-semibold text-gray-800 capitalize">收件匣</h2>
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" placeholder="搜尋郵件 (純UI展示)..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64">
-                    </div>
-                </div>
-            </header>
-
-            <!-- dynamic views container -->
-            <div id="viewContainer" class="flex-1 overflow-hidden relative">
-                
-                <!-- Email List View -->
-                <div id="emailListView" class="absolute inset-0 overflow-y-auto">
-                    <ul id="emailList" class="divide-y divide-gray-200">
-                        <!-- Email Items will be injected here -->
-                    </ul>
-                    <div id="emptyState" class="hidden h-full flex flex-col items-center justify-center text-gray-500">
-                        <i data-lucide="inbox" class="w-16 h-16 mb-4 text-gray-300"></i>
-                        <p class="text-lg font-medium">此資料夾沒有郵件</p>
-                    </div>
-                    <div id="noAccountState" class="hidden h-full flex flex-col items-center justify-center text-gray-500">
-                        <i data-lucide="settings" class="w-16 h-16 mb-4 text-gray-300"></i>
-                        <p class="text-lg font-medium">請先新增並選擇一個信箱帳號</p>
-                        <button onclick="app.openSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">前往設定</button>
-                    </div>
+                <!-- 帳號清單 -->
+                <div id="settingsListArea" class="space-y-4">
+                    <!-- JS 動態插入 -->
                 </div>
 
-                <!-- Email Detail View -->
-                <div id="emailDetailView" class="absolute inset-0 bg-white hidden flex flex-col">
-                    <div class="h-14 border-b border-gray-200 flex items-center px-4 space-x-2 flex-shrink-0 bg-gray-50">
-                        <button onclick="app.closeEmail()" class="p-2 hover:bg-gray-200 rounded-full text-gray-600 transition" title="返回">
-                            <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                        </button>
-                        <div class="w-px h-6 bg-gray-300 mx-2"></div>
-                        <button onclick="app.deleteCurrentEmail()" class="p-2 hover:bg-gray-200 rounded-full text-gray-600 transition" title="刪除">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
-                        <button onclick="app.openCompose(true)" class="p-2 hover:bg-gray-200 rounded-full text-gray-600 transition" title="回覆">
-                            <i data-lucide="reply" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto p-8">
-                        <h1 id="detailSubject" class="text-2xl font-bold text-gray-900 mb-6">主旨</h1>
-                        <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
-                            <div class="flex items-center">
-                                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg mr-4" id="detailAvatar">A</div>
+                <!-- 新增/修改表單 (預設隱藏) -->
+                <div id="settingsFormArea" class="hidden mt-8 anime-card bg-white p-6">
+                    <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2" id="settingsFormTitle">新增 Email 設定</h3>
+                    <form id="accountForm" onsubmit="event.preventDefault(); app.saveAccount();" class="space-y-4">
+                        <input type="hidden" id="accId">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block font-bold mb-1">自訂名稱 (如: 公司信箱)</label>
+                                <input type="text" id="accName" required class="anime-input w-full">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Email 地址</label>
+                                <input type="email" id="accEmail" required class="anime-input w-full">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">密碼 / 應用程式密碼</label>
+                                <input type="password" id="accPassword" required class="anime-input w-full">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">自動檢查新郵件頻率 (秒)</label>
+                                <input type="number" id="accInterval" required min="10" value="60" class="anime-input w-full">
+                            </div>
+                            <!-- IMAP 設定 -->
+                            <div class="col-span-2 md:col-span-1 p-4 border-2 border-dashed border-gray-400 rounded-lg bg-blue-50">
+                                <h4 class="font-bold mb-2 text-blue-800">收件 (IMAP) 設定</h4>
+                                <div class="mb-2">
+                                    <label class="block text-sm font-bold mb-1">IMAP 伺服器</label>
+                                    <input type="text" id="accImap" placeholder="imap.gmail.com" required class="anime-input w-full text-sm">
+                                </div>
                                 <div>
-                                    <div class="font-semibold text-gray-900" id="detailSenderName">寄件者名稱</div>
-                                    <div class="text-sm text-gray-500" id="detailSenderEmail">&lt;sender@example.com&gt;</div>
+                                    <label class="block text-sm font-bold mb-1">IMAP Port (通常為 993)</label>
+                                    <input type="number" id="accImapPort" value="993" required class="anime-input w-full text-sm">
                                 </div>
                             </div>
-                            <div class="text-sm text-gray-500" id="detailDate">日期時間</div>
+                            <!-- SMTP 設定 -->
+                            <div class="col-span-2 md:col-span-1 p-4 border-2 border-dashed border-gray-400 rounded-lg bg-green-50">
+                                <h4 class="font-bold mb-2 text-green-800">寄件 (SMTP) 設定</h4>
+                                <div class="mb-2">
+                                    <label class="block text-sm font-bold mb-1">SMTP 伺服器</label>
+                                    <input type="text" id="accSmtp" placeholder="smtp.gmail.com" required class="anime-input w-full text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-1">SMTP Port (通常為 465)</label>
+                                    <input type="number" id="accSmtpPort" value="465" required class="anime-input w-full text-sm">
+                                </div>
+                            </div>
                         </div>
-                        <div class="prose max-w-none text-gray-800" id="detailBody">
-                            <!-- 內容 -->
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="app.toggleSettingsForm(false)" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
+                            <button type="submit" class="anime-btn bg-orange-400 text-white px-6 py-2">儲存設定</button>
                         </div>
-                    </div>
+                    </form>
                 </div>
-
-            </div>
-        </main>
-    </div>
-
-    <!-- Compose Modal -->
-    <div id="composeModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
-             <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <h3 class="font-semibold text-gray-800" id="composeTitle">撰寫新郵件</h3>
-                <button onclick="app.closeCompose()" class="text-gray-500 hover:text-gray-800">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-4 flex-1 flex flex-col space-y-3">
-                <div class="flex items-center border-b border-gray-200 pb-2">
-                    <span class="text-gray-500 w-16 text-sm">收件者</span>
-                    <input type="text" id="composeTo" class="flex-1 outline-none text-sm" placeholder="example@domain.com">
-                </div>
-                <div class="flex items-center border-b border-gray-200 pb-2">
-                    <span class="text-gray-500 w-16 text-sm">主旨</span>
-                    <input type="text" id="composeSubject" class="flex-1 outline-none text-sm" placeholder="請輸入主旨">
-                </div>
-                <textarea id="composeBody" class="flex-1 w-full outline-none resize-none pt-2 text-sm text-gray-800 h-64" placeholder="撰寫您的郵件..."></textarea>
-            </div>
-            <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-                <button onclick="app.sendEmail()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition flex items-center">
-                    <i data-lucide="send" class="w-4 h-4 mr-2"></i> 傳送
-                </button>
-                <button onclick="app.closeCompose()" class="text-gray-500 hover:text-gray-800 text-sm">捨棄</button>
             </div>
         </div>
-    </div>
 
-    <!-- Settings/Accounts Modal -->
-    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <h3 class="font-semibold text-gray-800 text-lg">帳號設定</h3>
-                <button onclick="app.closeSettings()" class="text-gray-500 hover:text-gray-800">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-6 overflow-y-auto">
-                <div class="mb-6">
-                    <h4 class="text-sm font-semibold text-gray-600 mb-3 uppercase">已連結的帳號</h4>
-                    <ul id="settingsAccountList" class="space-y-2"></ul>
+        <!-- ================= VIEW: CONTACTS (通訊錄) ================= -->
+        <div id="view-contacts" class="view-hidden absolute inset-0 overflow-y-auto p-8">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">寄件人通訊錄管理</h2>
+                    <div class="flex space-x-2">
+                        <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input">
+                        <button onclick="app.openContactModal()" class="anime-btn bg-green-300 px-4 py-2 flex items-center">
+                            <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增聯絡人
+                        </button>
+                    </div>
                 </div>
-                <hr class="my-6 border-gray-200">
-                <h4 class="text-sm font-semibold text-gray-600 mb-3 uppercase">新增信箱連線</h4>
-                <form id="addAccountForm" class="space-y-4" onsubmit="event.preventDefault(); app.addAccount();">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">自訂名稱 (如: 公司信箱)</label>
-                        <input type="text" id="accName" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email 地址</label>
-                        <input type="email" id="accEmail" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">IMAP 伺服器 (收信)</label>
-                            <input type="text" id="accImap" placeholder="imap.gmail.com" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">SMTP 伺服器 (寄信)</label>
-                            <input type="text" id="accSmtp" placeholder="smtp.gmail.com" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">密碼 / 應用程式密碼</label>
-                        <input type="password" id="accPassword" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                        <p class="text-xs text-gray-500 mt-1">註：Gmail 請務必使用「應用程式密碼 (16碼)」。</p>
-                    </div>
-                    <button type="submit" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-2 rounded-lg transition mt-2">
-                        儲存並連結
+
+                <div class="anime-card bg-white p-4">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b-2 border-gray-800 bg-gray-100">
+                                <th class="p-3 font-bold">名稱</th>
+                                <th class="p-3 font-bold">Email</th>
+                                <th class="p-3 font-bold">備註</th>
+                                <th class="p-3 font-bold w-24 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactsTableBody" class="divide-y divide-gray-300">
+                            <!-- JS 動態插入 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VIEW: WEBMAIL (收發信作業) ================= -->
+        <div id="view-webmail" class="view-hidden absolute inset-0 flex">
+            
+            <!-- Webmail 左側邊欄 -->
+            <aside class="w-56 bg-[#f1e6d2] border-r-4 border-gray-800 flex flex-col z-0">
+                <div class="p-4 border-b-2 border-gray-800 bg-white">
+                    <label class="block text-sm font-bold mb-1">切換作業帳號</label>
+                    <select id="wmAccountSelect" class="anime-input w-full text-sm font-bold bg-yellow-50">
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div class="p-4">
+                    <button onclick="app.openCompose()" class="anime-btn w-full bg-orange-400 text-white py-3 flex items-center justify-center text-lg shadow-[4px_4px_0px_#1f2937]">
+                        <i data-lucide="pen" class="w-5 h-5 mr-2"></i> 撰寫郵件
                     </button>
-                </form>
+                </div>
+                <nav class="flex-1 p-2 space-y-2">
+                    <button onclick="app.setFolder('inbox')" id="fld-inbox" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition relative">
+                        <i data-lucide="inbox" class="w-5 h-5 mr-3"></i> 收件匣
+                        <span id="wm-badge-inbox" class="absolute right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-gray-800 hidden">0</span>
+                    </button>
+                    <button onclick="app.setFolder('drafts')" id="fld-drafts" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition">
+                        <i data-lucide="file-edit" class="w-5 h-5 mr-3"></i> 草稿
+                    </button>
+                    <button onclick="app.setFolder('sent')" id="fld-sent" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition">
+                        <i data-lucide="send" class="w-5 h-5 mr-3"></i> 寄件匣
+                    </button>
+                    <button onclick="app.setFolder('trash')" id="fld-trash" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition">
+                        <i data-lucide="trash-2" class="w-5 h-5 mr-3"></i> 垃圾桶
+                    </button>
+                </nav>
+                <div class="p-4 border-t-2 border-gray-800 text-xs text-gray-600 font-bold">
+                    <p id="wm-status-text">狀態：待命中</p>
+                    <p id="wm-last-sync">最後同步：--:--</p>
+                </div>
+            </aside>
+
+            <!-- Webmail 中間：郵件清單 -->
+            <section class="w-[400px] bg-white border-r-4 border-gray-800 flex flex-col z-0">
+                <!-- 工具列 -->
+                <div class="h-14 border-b-2 border-gray-800 flex items-center justify-between px-3 bg-gray-50 flex-shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" class="anime-checkbox" id="selectAllCb" onclick="app.toggleSelectAll(this)">
+                        <button onclick="app.batchDelete()" class="p-1.5 hover:bg-gray-200 rounded text-red-600 transition" title="刪除選取項目 (同步至伺服器)">
+                            <i data-lucide="trash" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="app.batchMarkRead()" class="p-1.5 hover:bg-gray-200 rounded text-blue-600 transition" title="標示為已讀">
+                            <i data-lucide="mail-open" class="w-5 h-5"></i>
+                        </button>
+                        <!-- 垃圾桶專屬功能 -->
+                        <button id="btnRestore" onclick="app.batchRestore()" class="p-1.5 hover:bg-gray-200 rounded text-green-600 transition hidden" title="還原選取項目">
+                            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                        </button>
+                        <button id="btnEmptyTrash" onclick="app.emptyTrash()" class="p-1.5 hover:bg-gray-200 rounded text-red-800 transition hidden" title="清空垃圾桶">
+                            <i data-lucide="flame" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <button onclick="app.fetchRealEmails(true)" class="p-1.5 hover:bg-gray-200 rounded text-gray-700 transition" title="強制重新整理">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <!-- 統計列 -->
+                <div class="px-4 py-2 bg-blue-50 border-b-2 border-gray-800 text-sm font-bold flex justify-between">
+                    <span id="wm-folder-title">收件匣</span>
+                    <span>總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
+                </div>
+                <!-- 列表 -->
+                <div class="flex-1 overflow-y-auto bg-white relative">
+                    <ul id="wm-email-list" class="divide-y-2 divide-gray-100">
+                        <!-- JS 注入 -->
+                    </ul>
+                    <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400">
+                        <i data-lucide="inbox" class="w-12 h-12 mb-2"></i>
+                        <p class="font-bold">沒有郵件</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Webmail 右側：分割預覽畫面 -->
+            <section class="flex-1 bg-[#faf8f5] flex flex-col relative overflow-hidden">
+                <div id="wm-preview-empty" class="absolute inset-0 flex items-center justify-center text-gray-400">
+                    <div class="text-center">
+                        <i data-lucide="mail" class="w-16 h-16 mx-auto mb-4 opacity-50"></i>
+                        <p class="text-xl font-bold">請從左側選取一封郵件來瀏覽</p>
+                    </div>
+                </div>
+                <div id="wm-preview-content" class="absolute inset-0 flex flex-col hidden">
+                    <!-- 預覽標頭 -->
+                    <div class="p-6 border-b-2 border-gray-800 bg-white flex-shrink-0">
+                        <h2 id="pv-subject" class="text-2xl font-bold mb-4 text-gray-900">主旨</h2>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div id="pv-avatar" class="w-10 h-10 rounded-full border-2 border-gray-800 bg-yellow-200 flex items-center justify-center font-bold text-lg mr-3">A</div>
+                                <div>
+                                    <div class="font-bold text-gray-800 text-lg flex items-center">
+                                        <span id="pv-sender-name">Sender</span>
+                                        <button onclick="app.addSenderToContacts()" class="ml-3 text-xs bg-green-100 border border-green-800 text-green-800 px-2 py-0.5 rounded hover:bg-green-200 flex items-center" title="加入通訊錄">
+                                            <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i> 加入
+                                        </button>
+                                    </div>
+                                    <div id="pv-sender-email" class="text-sm text-gray-500">email@example.com</div>
+                                </div>
+                            </div>
+                            <div id="pv-date" class="text-sm text-gray-500 font-bold">Date</div>
+                        </div>
+                    </div>
+                    <!-- 預覽內文 -->
+                    <div class="p-8 flex-1 overflow-y-auto bg-white m-4 anime-card text-lg leading-relaxed text-gray-800" id="pv-body">
+                        <!-- Body -->
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- Modal: 新增聯絡人 -->
+    <div id="contactModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center">
+        <div class="anime-card bg-white p-6 w-full max-w-md">
+            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2" id="contactModalTitle">新增聯絡人</h3>
+            <form onsubmit="event.preventDefault(); app.saveContact();" class="space-y-4">
+                <input type="hidden" id="ctId">
+                <div>
+                    <label class="block font-bold mb-1">名稱</label>
+                    <input type="text" id="ctName" required class="anime-input w-full">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">Email</label>
+                    <input type="email" id="ctEmail" required class="anime-input w-full">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">備註</label>
+                    <input type="text" id="ctNote" class="anime-input w-full">
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="app.closeContactModal()" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
+                    <button type="submit" class="anime-btn bg-green-400 text-white px-6 py-2">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: 撰寫/編輯草稿郵件 -->
+    <div id="composeModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white w-full max-w-3xl flex flex-col h-[85vh]">
+             <div class="px-6 py-4 border-b-2 border-gray-800 flex justify-between items-center bg-blue-50 rounded-t-xl">
+                <h3 class="text-2xl font-bold text-gray-800" id="composeTitle">撰寫新郵件</h3>
+                <button onclick="app.closeCompose()" class="text-gray-500 hover:text-red-500 transition">
+                    <i data-lucide="x" class="w-6 h-6 border-2 border-transparent hover:border-red-500 rounded-full"></i>
+                </button>
+            </div>
+            <div class="p-6 flex-1 flex flex-col space-y-4 overflow-y-auto bg-[#fdf6e3]">
+                <input type="hidden" id="composeDraftId">
+                <div class="flex items-center">
+                    <span class="font-bold w-20">收件者</span>
+                    <input type="text" id="composeTo" class="anime-input flex-1" placeholder="example@domain.com">
+                </div>
+                <div class="flex items-center">
+                    <span class="font-bold w-20">主旨</span>
+                    <input type="text" id="composeSubject" class="anime-input flex-1" placeholder="請輸入主旨">
+                </div>
+                <textarea id="composeBody" class="anime-input flex-1 w-full resize-none p-4 text-lg" placeholder="撰寫您的郵件內容..."></textarea>
+            </div>
+            <div class="px-6 py-4 border-t-2 border-gray-800 bg-white flex justify-between items-center rounded-b-xl">
+                <div>
+                    <button onclick="app.saveDraft()" class="anime-btn bg-yellow-300 px-6 py-2 mr-2 flex items-center">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> 存入草稿
+                    </button>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="app.closeCompose()" class="anime-btn bg-gray-200 px-6 py-2 text-gray-700">捨棄</button>
+                    <button onclick="app.sendEmail()" class="anime-btn bg-orange-500 text-white px-8 py-2 flex items-center">
+                        <i data-lucide="send" class="w-4 h-4 mr-2"></i> 傳送
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Message Toast -->
-    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg transform transition-transform duration-300 translate-y-20 opacity-0 z-50">
-        Message
+    <!-- 右下角通知 Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-6 py-3 rounded-xl border-2 border-gray-800 shadow-[4px_4px_0px_rgba(0,0,0,0.3)] transform transition-transform duration-300 translate-y-24 opacity-0 z-[60] font-bold flex items-center">
+        <i data-lucide="info" class="w-5 h-5 mr-2 text-yellow-400"></i>
+        <span id="toastMsg">Message</span>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration setup 
+        // Firebase 專屬設定
         const firebaseConfig = {
             apiKey: "AIzaSyBLHWC6grK-mfDATUY76AX1GTce5iHDi30",
             authDomain: "github-webmail.firebaseapp.com",
@@ -251,24 +451,25 @@
         };
         const defaultAppId = 'omni-webmail-system';
         const appId = typeof __app_id !== 'undefined' ? __app_id : defaultAppId;
-
-        // =========================================================================
-        // 【關鍵修改】: 將 Vercel API 網址換成「去掉 git-main」的正式 Production 網址
-        // =========================================================================
-        const VERCEL_API_BASE = 'https://webmail-api-lighminges-projects.vercel.app';
+        const VERCEL_API_BASE = 'https://webmail-api-lighminges-projects.vercel.app'; // 正式網址
 
         let appInstance, auth, db, user;
+        let checkTimer = null;
 
-        // Global State
+        // 全域狀態管理
         const state = {
+            currentView: 'home',
             accounts: [],
+            contacts: [],
+            localEmails: [], // 用來存草稿、寄件備份等本地信件
+            imapEmails: [],  // 真實從 Vercel 抓回來的信件
             selectedAccountId: null,
-            emails: [],
             currentFolder: 'inbox',
-            viewingEmail: null
+            viewingEmail: null,
+            selectedEmailIds: new Set(), // 批次選取
+            lastImapIds: new Set() // 偵測新信用
         };
 
-        // Initialize Firebase
         try {
             appInstance = initializeApp(firebaseConfig);
             auth = getAuth(appInstance);
@@ -278,17 +479,12 @@
             showToast("資料庫初始化失敗");
         }
 
-        // App Logic encapsulation
         window.app = {
             init: async function() {
                 try {
-                    // Auth First Rule
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } catch (tokenErr) {
-                            await signInAnonymously(auth);
-                        }
+                        try { await signInWithCustomToken(auth, __initial_auth_token); } 
+                        catch (e) { await signInAnonymously(auth); }
                     } else {
                         await signInAnonymously(auth);
                     }
@@ -296,256 +492,411 @@
                     onAuthStateChanged(auth, (currentUser) => {
                         if (currentUser) {
                             user = currentUser;
-                            document.getElementById('userIdDisplay').textContent = user.uid.substring(0,8) + '...';
+                            // 修正：移除舊版 userIdDisplay 的存取，避免 Null 錯誤
                             this.setupListeners();
                         }
                     });
                 } catch (e) {
-                    console.error("Auth error", e);
-                    showToast("登入失敗");
+                    showToast("系統登入失敗");
                 }
                 
-                // Event Listeners
-                document.getElementById('accountSelect').addEventListener('change', (e) => {
-                    this.selectAccount(e.target.value);
-                });
-                document.getElementById('btnOpenSettings').addEventListener('click', () => this.openSettings());
-                document.getElementById('btnCompose').addEventListener('click', () => this.openCompose());
+                // 綁定 Webmail 帳號切換
+                const wmAccSelect = document.getElementById('wmAccountSelect');
+                if (wmAccSelect) {
+                    wmAccSelect.addEventListener('change', (e) => {
+                        this.selectAccount(e.target.value);
+                    });
+                }
             },
 
             setupListeners: function() {
                 if (!user) return;
+                const uid = user.uid;
 
-                const accountsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'accounts');
-                onSnapshot(accountsRef, (snapshot) => {
-                    state.accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    this.renderAccountSelect();
-                    this.renderSettingsAccounts();
-
+                // 1. 監聽帳號
+                onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'accounts'), (snap) => {
+                    state.accounts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.renderSettingsList();
+                    this.renderWmAccountSelect();
+                    
                     if (state.accounts.length > 0 && !state.selectedAccountId) {
                         this.selectAccount(state.accounts[0].id);
-                    } else if (state.accounts.length === 0) {
-                        this.selectAccount(null);
                     }
                     
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    document.getElementById('appContainer').classList.remove('hidden');
+                    const overlay = document.getElementById('loadingOverlay');
+                    if(overlay) overlay.classList.add('hidden');
                     lucide.createIcons();
-                }, (error) => console.error("Accounts listener error:", error));
+                }, e => console.error("Acc Listener", e));
+
+                // 2. 監聽通訊錄
+                onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'contacts'), (snap) => {
+                    state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.renderContacts();
+                });
+
+                // 3. 監聽本地信件
+                onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'local_emails'), (snap) => {
+                    state.localEmails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
+                        this.renderWebmailList();
+                    }
+                });
             },
 
-            // --- 🩺 深度網路診斷工具 ---
-            runNetworkDiagnostics: async function() {
-                const listEl = document.getElementById('emailList');
-                listEl.classList.remove('hidden');
-                document.getElementById('emptyState').classList.add('hidden');
-                document.getElementById('noAccountState').classList.add('hidden');
+            // ================= 導覽與檢視切換 =================
+            navigate: function(viewId) {
+                state.currentView = viewId;
+                ['view-home', 'view-settings', 'view-contacts', 'view-webmail'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.classList.add('view-hidden');
+                });
+                const activeView = document.getElementById(`view-${viewId}`);
+                if(activeView) activeView.classList.remove('view-hidden');
                 
-                document.getElementById('currentFolderTitle').textContent = "系統網路診斷";
+                if (viewId === 'webmail' && state.selectedAccountId) {
+                    if(state.currentFolder === 'inbox') this.fetchRealEmails();
+                    else this.renderWebmailList();
+                }
+                lucide.createIcons();
+            },
 
-                // 將顯示區塊改為終端機樣式
-                listEl.innerHTML = `
-                    <div class="p-6 font-mono text-sm bg-gray-900 text-green-400 h-full overflow-y-auto selection:bg-green-700 selection:text-white">
-                        <p class="text-white mb-4 font-bold">▶ 啟動 Vercel 網路診斷程序...</p>
-                        <ul id="diagLog" class="space-y-3"></ul>
-                    </div>
-                `;
-                
-                const log = (msg, isError = false, isWarning = false) => {
-                    const li = document.createElement('li');
-                    if (isError) li.className = 'text-red-400 font-bold bg-red-900/30 p-2 rounded';
-                    else if (isWarning) li.className = 'text-yellow-400 font-bold bg-yellow-900/30 p-2 rounded';
-                    else li.className = 'opacity-90';
-                    li.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
-                    document.getElementById('diagLog').appendChild(li);
-                    // 自動捲動到底部
-                    li.scrollIntoView({ behavior: 'smooth' });
+            // ================= 信箱設定功能 =================
+            toggleSettingsForm: function(show, accId = null) {
+                const formArea = document.getElementById('settingsFormArea');
+                const form = document.getElementById('accountForm');
+                if (show && formArea && form) {
+                    formArea.classList.remove('hidden');
+                    form.reset();
+                    if (accId) {
+                        const acc = state.accounts.find(a => a.id === accId);
+                        if (acc) {
+                            document.getElementById('settingsFormTitle').textContent = '編輯 Email 設定';
+                            document.getElementById('accId').value = acc.id;
+                            document.getElementById('accName').value = acc.name;
+                            document.getElementById('accEmail').value = acc.email;
+                            document.getElementById('accPassword').value = acc.password;
+                            document.getElementById('accInterval').value = acc.checkInterval || 60;
+                            document.getElementById('accImap').value = acc.imap;
+                            document.getElementById('accImapPort').value = acc.imapPort || 993;
+                            document.getElementById('accSmtp').value = acc.smtp;
+                            document.getElementById('accSmtpPort').value = acc.smtpPort || 465;
+                        }
+                    } else {
+                        document.getElementById('settingsFormTitle').textContent = '新增 Email 設定';
+                        document.getElementById('accId').value = '';
+                    }
+                } else if(formArea) {
+                    formArea.classList.add('hidden');
+                }
+            },
+
+            saveAccount: async function() {
+                if (!user) return;
+                const id = document.getElementById('accId').value;
+                const data = {
+                    name: document.getElementById('accName').value,
+                    email: document.getElementById('accEmail').value,
+                    password: document.getElementById('accPassword').value,
+                    checkInterval: parseInt(document.getElementById('accInterval').value) || 60,
+                    imap: document.getElementById('accImap').value,
+                    imapPort: parseInt(document.getElementById('accImapPort').value) || 993,
+                    smtp: document.getElementById('accSmtp').value,
+                    smtpPort: parseInt(document.getElementById('accSmtpPort').value) || 465,
+                    updatedAt: Date.now()
                 };
 
                 try {
-                    log(`目標 API 網址: <span class="text-white">${VERCEL_API_BASE}</span>`);
-                    
-                    if (VERCEL_API_BASE.includes('-git-')) {
-                        log(`⚠ 【警告】您目前使用的是包含 "-git-" 的預覽網址。Vercel 預設會阻擋 API 請求。請改用 Production 網址。`, false, true);
-                    }
-
-                    log("----------------------------------------");
-                    log("【測試 1】發送基礎 GET 請求 (測試伺服器是否存活)...");
-                    
-                    let startTime = Date.now();
-                    let response;
-                    try {
-                        response = await fetch(VERCEL_API_BASE + '/');
-                    } catch (e) {
-                         throw new Error(`GET 請求直接被攔截！ (${e.message})`);
-                    }
-                    
-                    let text = await response.text();
-                    log(`✓ GET 測試完成 (耗時 ${Date.now() - startTime}ms)。狀態碼: ${response.status}`);
-                    log(`✓ 伺服器回應內容: <span class="text-gray-300">${text.substring(0, 100)}</span>`);
-
-                    log("----------------------------------------");
-                    log("【測試 2】發送基礎 POST 請求 (/api/emails) 測試 CORS 機制...");
-                    
-                    startTime = Date.now();
-                    try {
-                        response = await fetch(VERCEL_API_BASE + '/api/emails', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ test: "diagnostic_ping" })
-                        });
-                    } catch (e) {
-                        throw new Error(`POST 請求在送出時直接被擋下！ (${e.message})`);
-                    }
-                    
-                    log(`✓ POST 測試完成 (耗時 ${Date.now() - startTime}ms)。狀態碼: ${response.status}`);
-                    
-                    // 深度檢查 Headers
-                    const originHeader = response.headers.get('access-control-allow-origin');
-                    if (originHeader) {
-                        log(`✓ 成功取得 CORS 標頭: Access-Control-Allow-Origin = ${originHeader}`);
+                    if (id) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id), data);
+                        showToast("設定已更新");
                     } else {
-                        log(`⚠ 【警告】回應成功，但完全找不到 CORS 標頭。這通常代表伺服器內部崩潰，或是設定未生效。`, false, true);
+                        data.createdAt = Date.now();
+                        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'accounts'), data);
+                        showToast("帳號已新增");
                     }
-                    
-                    if (response.status === 500) {
-                        const errData = await response.json();
-                        log(`❌ 【死因分析】伺服器回傳了 500 錯誤。這代表「連線是成功的」，但是您的 Node.js 程式碼在執行時崩潰了！<br> 👉 Vercel 報錯內容：<span class="text-white">${errData.error || '未知錯誤'}</span>`, true);
-                    } else if (response.ok) {
-                        log("🎉 POST 請求完全成功，沒有任何 CORS 阻擋！");
-                    }
-
-                    log("----------------------------------------");
-                    log("▶ 診斷結束。請截圖此畫面提供協助分析。");
-
-                } catch (e) {
-                    log(`❌ 【致命錯誤】${e.message}`, true);
-                    if (e.message.includes('Failed to fetch') || e.message.includes('攔截')) {
-                        log(`💡 【最終結論】您的連線被 Vercel 的「預覽版安全鎖 (Vercel Authentication)」或是瀏覽器擋下了。`, true);
-                        log(`👉 解法：請至 Vercel 控制台找到「正式版 Domains」(通常是不含 git-main 的網址) 並替換，或是進入 Settings 關閉 Vercel Authentication。`, true);
-                    }
-                }
+                    this.toggleSettingsForm(false);
+                } catch (e) { showToast("儲存失敗"); }
             },
 
-            fetchRealEmails: async function() {
-                if (!state.selectedAccountId) return;
-                
-                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
-                if (!activeAcc) return;
-
-                document.getElementById('emailList').innerHTML = '<div class="p-8 text-center text-gray-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500"></i><p>正在透過 Vercel 伺服器接收信件，請稍候...</p></div>';
-                document.getElementById('emailList').classList.remove('hidden');
-                document.getElementById('emptyState').classList.add('hidden');
-                document.getElementById('noAccountState').classList.add('hidden');
-                lucide.createIcons();
-
+            deleteAccount: async function(id) {
+                if (!confirm("確定刪除此信箱連線？")) return;
                 try {
-                    const response = await fetch(VERCEL_API_BASE + '/api/emails', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user: activeAcc.email,
-                            pass: activeAcc.password,
-                            imapHost: activeAcc.imap || 'imap.gmail.com'
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`伺服器錯誤 (${response.status}): ${errorText.substring(0, 150)}`);
-                    }
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id));
+                    if (state.selectedAccountId === id) this.selectAccount(null);
+                    showToast("已刪除");
+                } catch (e) { showToast("刪除失敗"); }
+            },
 
-                    const data = await response.json();
-                    if (data.success) {
-                        const otherEmails = state.emails.filter(e => e.folder !== 'inbox');
-                        const fetchedInbox = data.emails.map(e => ({ ...e, accountId: activeAcc.id, folder: 'inbox' }));
-                        state.emails = [...otherEmails, ...fetchedInbox];
-                        
-                        this.renderEmailList();
-                        this.updateUnreadBadges();
-                    } else {
-                        throw new Error(data.error || "未知錯誤");
-                    }
-                } catch (e) {
-                    console.error("Fetch 錯誤詳情:", e);
-                    let displayMsg = e.message;
-                    if (e.message.includes('Failed to fetch')) {
-                        displayMsg = "跨域請求被阻擋 (CORS) 或 Vercel 伺服器無回應。";
-                    }
-
-                    showToast("無法連接到郵件伺服器");
-                    document.getElementById('emailList').innerHTML = `
-                        <div class="p-8 text-center text-red-500 flex flex-col items-center">
-                            <i data-lucide="alert-circle" class="w-10 h-10 mb-2"></i>
-                            <p class="font-bold text-lg mb-2">收信失敗</p>
-                            <p class="text-sm max-w-md break-all bg-red-50 p-3 rounded border border-red-100">${displayMsg}</p>
-                            <p class="text-xs text-gray-500 mt-4 font-bold">👉 請點擊左側選單最下方的「執行網路診斷」按鈕來找出真正原因！</p>
+            renderSettingsList: function() {
+                const area = document.getElementById('settingsListArea');
+                if(!area) return;
+                area.innerHTML = state.accounts.length === 0 ? '<p class="text-gray-500 font-bold p-4 text-center border-2 border-dashed border-gray-400 rounded-xl">尚無設定任何信箱</p>' : '';
+                
+                state.accounts.forEach(acc => {
+                    area.innerHTML += `
+                        <div class="anime-card p-4 flex justify-between items-center bg-white">
+                            <div>
+                                <h4 class="text-xl font-bold">${acc.name} <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded ml-2">每 ${acc.checkInterval||60} 秒同步</span></h4>
+                                <p class="text-gray-600">${acc.email}</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="app.toggleSettingsForm(true, '${acc.id}')" class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg border-2 border-gray-800 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                <button onclick="app.deleteAccount('${acc.id}')" class="p-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg border-2 border-gray-800 transition"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                            </div>
                         </div>
                     `;
-                    lucide.createIcons();
-                }
+                });
             },
 
-            // --- UI Rendering ---
-            renderAccountSelect: function() {
-                const select = document.getElementById('accountSelect');
-                select.innerHTML = '';
-                if (state.accounts.length === 0) {
-                    select.innerHTML = '<option value="">(無已設定的帳號)</option>';
+            // ================= 通訊錄功能 =================
+            openContactModal: function(id = null) {
+                document.getElementById('contactModal').classList.remove('hidden');
+                if (id) {
+                    const c = state.contacts.find(x => x.id === id);
+                    document.getElementById('contactModalTitle').textContent = '編輯聯絡人';
+                    document.getElementById('ctId').value = c.id;
+                    document.getElementById('ctName').value = c.name;
+                    document.getElementById('ctEmail').value = c.email;
+                    document.getElementById('ctNote').value = c.note || '';
                 } else {
-                    state.accounts.forEach(acc => {
-                        const opt = document.createElement('option');
-                        opt.value = acc.id;
-                        opt.textContent = `${acc.name} (${acc.email})`;
-                        if (acc.id === state.selectedAccountId) opt.selected = true;
-                        select.appendChild(opt);
-                    });
+                    document.getElementById('contactModalTitle').textContent = '新增聯絡人';
+                    document.getElementById('ctId').value = '';
+                    document.getElementById('ctName').value = '';
+                    document.getElementById('ctEmail').value = '';
+                    document.getElementById('ctNote').value = '';
                 }
             },
+            closeContactModal: function() { document.getElementById('contactModal').classList.add('hidden'); },
+            
+            saveContact: async function() {
+                const id = document.getElementById('ctId').value;
+                const data = {
+                    name: document.getElementById('ctName').value,
+                    email: document.getElementById('ctEmail').value,
+                    note: document.getElementById('ctNote').value
+                };
+                try {
+                    if (id) await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'contacts', id), data);
+                    else await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'contacts'), data);
+                    showToast("聯絡人已儲存");
+                    this.closeContactModal();
+                } catch (e) { showToast("儲存失敗"); }
+            },
+            
+            deleteContact: async function(id) {
+                if (!confirm("刪除此聯絡人？")) return;
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'contacts', id));
+                showToast("聯絡人已刪除");
+            },
 
-            renderEmailList: function() {
-                const listEl = document.getElementById('emailList');
-                const emptyState = document.getElementById('emptyState');
-                const noAccState = document.getElementById('noAccountState');
-                listEl.innerHTML = '';
-
-                if (!state.selectedAccountId) {
-                    listEl.classList.add('hidden');
-                    emptyState.classList.add('hidden');
-                    noAccState.classList.remove('hidden');
+            renderContacts: function() {
+                const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
+                const tbody = document.getElementById('contactsTableBody');
+                if(!tbody) return;
+                tbody.innerHTML = '';
+                
+                const filtered = state.contacts.filter(c => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term));
+                if (filtered.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
                     return;
                 }
                 
-                noAccState.classList.add('hidden');
+                filtered.forEach(c => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-green-50 transition">
+                            <td class="p-3 font-bold text-gray-800">${c.name}</td>
+                            <td class="p-3 text-gray-600">${c.email}</td>
+                            <td class="p-3 text-sm text-gray-500">${c.note || '-'}</td>
+                            <td class="p-3 text-center space-x-2">
+                                <button onclick="app.openContactModal('${c.id}')" class="text-blue-600 hover:text-blue-800"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                <button onclick="app.deleteContact('${c.id}')" class="text-red-600 hover:text-red-800"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                lucide.createIcons();
+            },
 
-                const filteredEmails = state.emails.filter(e => e.accountId === state.selectedAccountId && e.folder === state.currentFolder);
+            // ================= Webmail 作業核心功能 =================
+            renderWmAccountSelect: function() {
+                const sel = document.getElementById('wmAccountSelect');
+                if(!sel) return;
+                sel.innerHTML = state.accounts.length ? '' : '<option value="">請先新增帳號</option>';
+                state.accounts.forEach(a => {
+                    sel.innerHTML += `<option value="${a.id}" ${a.id===state.selectedAccountId?'selected':''}>${a.name}</option>`;
+                });
+            },
 
-                if (filteredEmails.length === 0) {
+            selectAccount: function(accId) {
+                state.selectedAccountId = accId;
+                this.closeEmailPreview();
+                this.clearSelection();
+                
+                if (accId) {
+                    const acc = state.accounts.find(a => a.id === accId);
+                    this.startAutoSync(acc.checkInterval || 60);
+                    if(state.currentView === 'webmail' && state.currentFolder === 'inbox') {
+                        this.fetchRealEmails();
+                    } else {
+                        this.renderWebmailList();
+                    }
+                } else {
+                    this.stopAutoSync();
+                    this.renderWebmailList();
+                }
+            },
+
+            setFolder: function(folder) {
+                state.currentFolder = folder;
+                ['inbox', 'drafts', 'sent', 'trash'].forEach(f => {
+                    const el = document.getElementById(`fld-${f}`);
+                    if(el) el.classList.remove('bg-white', 'shadow-[3px_3px_0px_#1f2937]', 'border-2', 'border-gray-800');
+                });
+                const active = document.getElementById(`fld-${folder}`);
+                if(active) active.classList.add('bg-white', 'shadow-[3px_3px_0px_#1f2937]', 'border-2', 'border-gray-800');
+                
+                const titles = { 'inbox': '收件匣', 'drafts': '草稿', 'sent': '寄件匣', 'trash': '垃圾桶' };
+                const tEl = document.getElementById('wm-folder-title');
+                if(tEl) tEl.textContent = titles[folder];
+                
+                const resBtn = document.getElementById('btnRestore');
+                const emptyBtn = document.getElementById('btnEmptyTrash');
+                if(resBtn) resBtn.classList.toggle('hidden', folder !== 'trash');
+                if(emptyBtn) emptyBtn.classList.toggle('hidden', folder !== 'trash');
+
+                this.closeEmailPreview();
+                this.clearSelection();
+                
+                if (folder === 'inbox') this.fetchRealEmails();
+                else this.renderWebmailList();
+            },
+
+            startAutoSync: function(seconds) {
+                this.stopAutoSync();
+                const st = document.getElementById('wm-status-text');
+                if(st) st.textContent = `狀態：自動同步 (${seconds}s)`;
+                checkTimer = setInterval(() => {
+                    if (state.currentView === 'webmail' && state.selectedAccountId && state.currentFolder === 'inbox') {
+                        this.fetchRealEmails(false); // background fetch
+                    }
+                }, seconds * 1000);
+            },
+            stopAutoSync: function() {
+                if (checkTimer) clearInterval(checkTimer);
+                const st = document.getElementById('wm-status-text');
+                if(st) st.textContent = "狀態：暫停中";
+            },
+
+            getCurrentEmails: function() {
+                if (!state.selectedAccountId) return [];
+                if (state.currentFolder === 'inbox') {
+                    return state.imapEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox');
+                } else {
+                    return state.localEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === state.currentFolder);
+                }
+            },
+
+            fetchRealEmails: async function(showLoadingUI = true) {
+                if (!state.selectedAccountId) return;
+                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                if (!activeAcc) return;
+                
+                const listEl = document.getElementById('wm-email-list');
+
+                if (showLoadingUI && listEl) {
+                    listEl.innerHTML = `<li class="p-8 text-center text-gray-500 font-bold"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500"></i>正在同步伺服器...</li>`;
+                    listEl.classList.remove('hidden');
+                    document.getElementById('wm-empty-state').classList.add('hidden');
+                    lucide.createIcons();
+                }
+
+                try {
+                    const res = await fetch(VERCEL_API_BASE + '/api/emails', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap })
+                    });
+                    
+                    if (!res.ok) throw new Error("伺服器連線異常");
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error);
+
+                    const newEmails = data.emails.map(e => ({ ...e, accountId: activeAcc.id, folder: 'inbox' }));
+                    state.imapEmails = state.imapEmails.filter(e => e.accountId !== activeAcc.id).concat(newEmails);
+                    
+                    if (!showLoadingUI) {
+                        let newCount = 0;
+                        newEmails.forEach(em => {
+                            if (!state.lastImapIds.has(em.id)) newCount++;
+                        });
+                        if (newCount > 0) {
+                            showToast(`自動同步完成：收到 ${newCount} 封新郵件！`);
+                        }
+                    }
+                    
+                    state.lastImapIds = new Set(newEmails.map(e => e.id));
+                    const syncEl = document.getElementById('wm-last-sync');
+                    if(syncEl) syncEl.textContent = `最後同步：${new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}`;
+
+                    if (state.currentFolder === 'inbox') this.renderWebmailList();
+                    
+                } catch (e) {
+                    if (showLoadingUI && listEl) {
+                        listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>連線失敗，請檢查設定或 Vercel API</li>`;
+                        lucide.createIcons();
+                    }
+                }
+            },
+
+            renderWebmailList: function() {
+                const listEl = document.getElementById('wm-email-list');
+                const emptyState = document.getElementById('wm-empty-state');
+                if(!listEl) return;
+                listEl.innerHTML = '';
+                
+                const emails = this.getCurrentEmails();
+                
+                // 更新統計
+                const unreadCount = emails.filter(e => !e.read).length;
+                const totEl = document.getElementById('wm-total-count');
+                if(totEl) totEl.textContent = emails.length;
+                const unreadEl = document.getElementById('wm-unread-count');
+                if(unreadEl) unreadEl.textContent = unreadCount;
+                
+                const badge = document.getElementById('wm-badge-inbox');
+                if (badge) {
+                    if(unreadCount > 0) {
+                        badge.textContent = unreadCount;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+
+                if (emails.length === 0) {
                     listEl.classList.add('hidden');
-                    emptyState.classList.remove('hidden');
+                    if(emptyState) emptyState.classList.remove('hidden');
                 } else {
                     listEl.classList.remove('hidden');
-                    emptyState.classList.add('hidden');
+                    if(emptyState) emptyState.classList.add('hidden');
 
-                    filteredEmails.forEach(email => {
+                    emails.forEach(email => {
                         const li = document.createElement('li');
-                        li.className = `p-4 hover:bg-gray-50 cursor-pointer flex items-start space-x-4 transition ${email.read ? 'bg-white text-gray-600' : 'bg-blue-50/30 text-gray-900 font-semibold'}`;
-                        li.onclick = () => this.viewEmail(email);
-
-                        const date = new Date(email.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
-                        const avatarLetter = (email.senderName || email.sender || 'A').charAt(0).toUpperCase();
-
+                        const isSelected = state.selectedEmailIds.has(email.id);
+                        li.className = `p-4 cursor-pointer flex items-center transition border-l-4 ${isSelected ? 'bg-yellow-100 border-yellow-500' : (email.read ? 'bg-white border-transparent hover:bg-gray-50' : 'bg-[#fffdf0] border-orange-400')}`;
+                        
+                        const dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
                         li.innerHTML = `
-                            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                                ${avatarLetter}
+                            <div class="mr-4" onclick="event.stopPropagation()">
+                                <input type="checkbox" class="anime-checkbox" value="${email.id}" ${isSelected ? 'checked' : ''} onchange="app.toggleEmailSelect('${email.id}')">
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex justify-between mb-1">
-                                    <p class="text-sm truncate w-3/4">${email.senderName || email.sender}</p>
-                                    <p class="text-xs text-gray-500 flex-shrink-0">${date}</p>
+                            <div class="flex-1 min-w-0" onclick="app.previewEmail('${email.id}')">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <p class="font-bold text-gray-900 truncate pr-2 ${!email.read ? 'text-orange-600' : ''}">${email.senderName || email.recipient || '(無收件人)'}</p>
+                                    <p class="text-xs font-bold text-gray-500 flex-shrink-0">${dateStr}</p>
                                 </div>
-                                <p class="text-sm truncate mb-1">${email.subject || '(無主旨)'}</p>
-                                <p class="text-xs text-gray-500 truncate font-normal">${email.bodySnippet || '...'}</p>
+                                <p class="text-sm font-bold text-gray-800 truncate">${email.subject || '(無主旨)'}</p>
+                                <p class="text-xs text-gray-500 truncate mt-1">${email.bodySnippet || '...'}</p>
                             </div>
                         `;
                         listEl.appendChild(li);
@@ -553,281 +904,240 @@
                 }
             },
 
-            updateUnreadBadges: function() {
-                if (!state.selectedAccountId) return;
-                const unreadInbox = state.emails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox' && !e.read).length;
-                const badge = document.getElementById('badge-inbox');
-                if (unreadInbox > 0) {
-                    badge.textContent = unreadInbox;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            },
-
-            // --- Actions ---
-            selectAccount: function(accountId) {
-                state.selectedAccountId = accountId;
-                document.getElementById('accountSelect').value = accountId || '';
-                this.closeEmail();
-                if (accountId) {
-                    this.fetchRealEmails();
-                } else {
-                    this.renderEmailList();
-                    this.updateUnreadBadges();
-                }
-            },
-
-            setFolder: function(folder) {
-                state.currentFolder = folder;
-                
-                document.querySelectorAll('.nav-item').forEach(el => {
-                    el.classList.remove('bg-blue-50', 'text-blue-700');
-                    el.classList.add('text-gray-700', 'hover:bg-gray-100');
-                });
-                const activeNav = document.getElementById(`nav-${folder}`);
-                if(activeNav) {
-                    activeNav.classList.remove('text-gray-700', 'hover:bg-gray-100');
-                    activeNav.classList.add('bg-blue-50', 'text-blue-700');
-                }
-
-                const titles = { 'inbox': '收件匣', 'sent': '寄件匣', 'drafts': '草稿', 'trash': '垃圾桶' };
-                document.getElementById('currentFolderTitle').textContent = titles[folder];
-
-                this.closeEmail();
-                
-                if (folder === 'inbox') {
-                    this.fetchRealEmails();
-                } else {
-                    this.renderEmailList();
-                }
-            },
-
-            viewEmail: async function(email) {
+            // --- 預覽與右側面板 ---
+            previewEmail: function(id) {
+                const email = this.getCurrentEmails().find(e => e.id === id);
                 if (!email) return;
                 state.viewingEmail = email;
 
                 if (!email.read && email.folder === 'inbox') {
                     email.read = true;
-                    this.renderEmailList();
-                    this.updateUnreadBadges();
+                    this.renderWebmailList();
                 }
 
-                document.getElementById('emailListView').classList.add('hidden');
-                document.getElementById('emailDetailView').classList.remove('hidden');
+                document.getElementById('wm-preview-empty').classList.add('hidden');
+                document.getElementById('wm-preview-content').classList.remove('hidden');
 
-                const date = new Date(email.timestamp).toLocaleString('zh-TW');
-                const avatarLetter = (email.senderName || email.sender || 'A').charAt(0).toUpperCase();
-
-                document.getElementById('detailSubject').textContent = email.subject || '(無主旨)';
-                document.getElementById('detailSenderName').textContent = email.senderName || email.sender.split('@')[0];
-                document.getElementById('detailSenderEmail').textContent = `<${email.sender}>`;
-                document.getElementById('detailDate').textContent = date;
-                document.getElementById('detailAvatar').textContent = avatarLetter;
+                document.getElementById('pv-subject').textContent = email.subject || '(無主旨)';
+                const sName = email.senderName || (email.sender?email.sender.split('@')[0]:'Draft');
+                document.getElementById('pv-sender-name').textContent = sName;
+                document.getElementById('pv-sender-email').textContent = `<${email.sender || email.recipient}>`;
+                document.getElementById('pv-date').textContent = new Date(email.timestamp).toLocaleString('zh-TW');
+                document.getElementById('pv-avatar').textContent = sName.charAt(0).toUpperCase();
                 
-                const safeBody = email.body.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-                document.getElementById('detailBody').innerHTML = safeBody;
-                
-                lucide.createIcons();
+                const safeBody = (email.body||'').replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+                document.getElementById('pv-body').innerHTML = safeBody;
             },
-
-            closeEmail: function() {
+            closeEmailPreview: function() {
                 state.viewingEmail = null;
-                document.getElementById('emailListView').classList.remove('hidden');
-                document.getElementById('emailDetailView').classList.add('hidden');
+                const c = document.getElementById('wm-preview-content');
+                if(c) c.classList.add('hidden');
+                const e = document.getElementById('wm-preview-empty');
+                if(e) e.classList.remove('hidden');
             },
 
-            deleteCurrentEmail: async function() {
-                if (!state.viewingEmail || !user) return;
-                state.viewingEmail.folder = 'trash';
-                showToast("郵件已移至垃圾桶 (前端隱藏)");
-                this.closeEmail();
-                this.renderEmailList();
+            addSenderToContacts: function() {
+                if(!state.viewingEmail) return;
+                document.getElementById('contactModal').classList.remove('hidden');
+                document.getElementById('contactModalTitle').textContent = '從郵件加入聯絡人';
+                document.getElementById('ctId').value = '';
+                document.getElementById('ctName').value = state.viewingEmail.senderName || '';
+                document.getElementById('ctEmail').value = state.viewingEmail.sender || '';
             },
 
-            // --- Compose Logic ---
-            openCompose: function(isReply = false) {
-                if (!state.selectedAccountId) {
-                    showToast("請先新增並選擇一個信箱帳號！");
-                    return;
+            // --- 批次操作 ---
+            toggleSelectAll: function(cb) {
+                state.selectedEmailIds.clear();
+                if(cb.checked) {
+                    this.getCurrentEmails().forEach(e => state.selectedEmailIds.add(e.id));
                 }
-                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                this.renderWebmailList();
+            },
+            toggleEmailSelect: function(id) {
+                if(state.selectedEmailIds.has(id)) state.selectedEmailIds.delete(id);
+                else state.selectedEmailIds.add(id);
+                this.renderWebmailList();
+            },
+            clearSelection: function() {
+                state.selectedEmailIds.clear();
+                const selectAllCb = document.getElementById('selectAllCb');
+                if(selectAllCb) selectAllCb.checked = false;
+            },
+
+            batchDelete: async function() {
+                if (state.selectedEmailIds.size === 0) { showToast("請先選取郵件"); return; }
+                if (!confirm(`確定要刪除選取的 ${state.selectedEmailIds.size} 封郵件嗎？`)) return;
+
+                if (state.currentFolder === 'inbox') {
+                    const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                    try {
+                        showToast("向伺服器發送同步刪除指令...");
+                        const response = await fetch(VERCEL_API_BASE + '/api/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, uids: Array.from(state.selectedEmailIds) })
+                        });
+                        if (!response.ok) throw new Error("API異常");
+                        state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(e.id));
+                    } catch (e) {
+                        console.warn(e);
+                        state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(e.id));
+                    }
+                } else {
+                    const batch = writeBatch(db);
+                    state.selectedEmailIds.forEach(id => {
+                        const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', id);
+                        if (state.currentFolder === 'trash') {
+                            batch.delete(ref);
+                        } else {
+                            batch.update(ref, { folder: 'trash' });
+                        }
+                    });
+                    await batch.commit();
+                }
+
+                if (state.viewingEmail && state.selectedEmailIds.has(state.viewingEmail.id)) this.closeEmailPreview();
+                this.clearSelection();
+                this.renderWebmailList();
+                showToast("郵件已刪除");
+            },
+
+            batchMarkRead: function() {
+                if (state.selectedEmailIds.size === 0) return;
+                if (state.currentFolder === 'inbox') {
+                    state.imapEmails.forEach(e => {
+                        if (state.selectedEmailIds.has(e.id)) e.read = true;
+                    });
+                    this.clearSelection();
+                    this.renderWebmailList();
+                    showToast("已標示為已讀");
+                }
+            },
+            
+            batchRestore: async function() {
+                if (state.currentFolder !== 'trash' || state.selectedEmailIds.size === 0) return;
+                const batch = writeBatch(db);
+                state.selectedEmailIds.forEach(id => {
+                    const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', id);
+                    batch.update(ref, { folder: 'inbox' });
+                });
+                await batch.commit();
+                this.clearSelection();
+                showToast("郵件已還原");
+            },
+
+            emptyTrash: async function() {
+                const trashEmails = this.getCurrentEmails();
+                if (trashEmails.length === 0) return;
+                if (!confirm("確定要永久清空垃圾桶？這將無法復原。")) return;
                 
+                const batch = writeBatch(db);
+                trashEmails.forEach(e => {
+                    batch.delete(doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', e.id));
+                });
+                await batch.commit();
+                this.closeEmailPreview();
+                showToast("垃圾桶已清空");
+            },
+
+            // --- 寫信與草稿 ---
+            openCompose: function(isReply = false) {
+                if (!state.selectedAccountId) { showToast("請先選擇帳號"); return; }
+                const acc = state.accounts.find(a => a.id === state.selectedAccountId);
+                document.getElementById('composeTitle').textContent = `使用 ${acc.email} 撰寫`;
+                
+                document.getElementById('composeDraftId').value = '';
                 document.getElementById('composeTo').value = '';
                 document.getElementById('composeSubject').value = '';
                 document.getElementById('composeBody').value = '';
-                document.getElementById('composeTitle').textContent = `使用 ${activeAcc.email} 撰寫`;
 
                 if (isReply && state.viewingEmail) {
-                    document.getElementById('composeTo').value = state.viewingEmail.sender;
+                    document.getElementById('composeTo').value = state.viewingEmail.sender || state.viewingEmail.recipient;
                     document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
-                    document.getElementById('composeBody').value = `\n\n\n--- 原始郵件 ---\n日期: ${new Date(state.viewingEmail.timestamp).toLocaleString()}\n寄件者: ${state.viewingEmail.sender}\n\n${state.viewingEmail.body}`;
+                    document.getElementById('composeBody').value = `\n\n--- 原始郵件 ---\n${state.viewingEmail.body}`;
+                } else if (state.currentFolder === 'drafts' && state.viewingEmail) {
+                    document.getElementById('composeDraftId').value = state.viewingEmail.id;
+                    document.getElementById('composeTo').value = state.viewingEmail.recipient;
+                    document.getElementById('composeSubject').value = state.viewingEmail.subject;
+                    document.getElementById('composeBody').value = state.viewingEmail.body;
                 }
-
                 document.getElementById('composeModal').classList.remove('hidden');
             },
+            closeCompose: function() { document.getElementById('composeModal').classList.add('hidden'); },
 
-            closeCompose: function() {
-                document.getElementById('composeModal').classList.add('hidden');
+            saveDraft: async function() {
+                const acc = state.accounts.find(a => a.id === state.selectedAccountId);
+                const draftId = document.getElementById('composeDraftId').value;
+                const data = {
+                    accountId: acc.id,
+                    folder: 'drafts',
+                    sender: acc.email,
+                    recipient: document.getElementById('composeTo').value,
+                    subject: document.getElementById('composeSubject').value || '(無主旨)',
+                    body: document.getElementById('composeBody').value,
+                    bodySnippet: document.getElementById('composeBody').value.substring(0, 40),
+                    timestamp: Date.now(),
+                    read: true
+                };
+
+                try {
+                    const collRef = collection(db, 'artifacts', appId, 'users', user.uid, 'local_emails');
+                    if (draftId) await updateDoc(doc(collRef, draftId), data);
+                    else await addDoc(collRef, data);
+                    
+                    showToast("已存入草稿！");
+                    this.closeCompose();
+                } catch (e) { showToast("儲存草稿失敗"); }
             },
 
             sendEmail: async function() {
-                if (!state.selectedAccountId || !user) return;
-                
+                const acc = state.accounts.find(a => a.id === state.selectedAccountId);
                 const to = document.getElementById('composeTo').value.trim();
-                const subject = document.getElementById('composeSubject').value.trim();
+                const subject = document.getElementById('composeSubject').value;
                 const body = document.getElementById('composeBody').value;
-                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
-
                 if (!to) { showToast("請輸入收件者"); return; }
                 
-                showToast("正在傳送郵件...");
-                
+                showToast("傳送中...");
                 try {
                     const response = await fetch(VERCEL_API_BASE + '/api/send', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user: activeAcc.email,
-                            pass: activeAcc.password,
-                            to: to,
-                            subject: subject,
-                            text: body,
-                            smtpHost: activeAcc.smtp || 'smtp.gmail.com'
-                        })
+                        body: JSON.stringify({ user: acc.email, pass: acc.password, to, subject, text: body, smtpHost: acc.smtp })
+                    });
+                    
+                    if (!response.ok) throw new Error("伺服器錯誤");
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.error);
+
+                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'local_emails'), {
+                        accountId: acc.id, folder: 'sent', sender: acc.email, senderName: acc.name, recipient: to, subject, body,
+                        bodySnippet: body.substring(0, 40), timestamp: Date.now(), read: true
                     });
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`伺服器錯誤 (${response.status}): ${errorText}`);
-                    }
+                    const draftId = document.getElementById('composeDraftId').value;
+                    if (draftId) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', draftId));
 
-                    const data = await response.json();
-                    if (data.success) {
-                        showToast("郵件已成功傳送！");
-                        const newEmail = {
-                            id: 'sent-' + Date.now(),
-                            accountId: state.selectedAccountId,
-                            folder: 'sent',
-                            sender: activeAcc.email,
-                            senderName: activeAcc.name,
-                            recipient: to,
-                            subject: subject,
-                            body: body,
-                            bodySnippet: body.substring(0, 50).replace(/\n/g, ' '),
-                            timestamp: Date.now(),
-                            read: true
-                        };
-                        state.emails.push(newEmail);
-                        
-                        this.closeCompose();
-                        if (state.currentFolder === 'sent') {
-                            this.renderEmailList();
-                        }
-                    } else {
-                        throw new Error(data.error);
-                    }
+                    showToast("郵件已成功傳送！");
+                    this.closeCompose();
                 } catch (e) {
-                    console.error("Send error", e);
-                    showToast("傳送失敗");
-                }
-            },
-
-            // --- Settings Logic ---
-            openSettings: function() {
-                document.getElementById('settingsModal').classList.remove('hidden');
-                this.renderSettingsAccounts();
-            },
-
-            closeSettings: function() {
-                document.getElementById('settingsModal').classList.add('hidden');
-                document.getElementById('addAccountForm').reset();
-            },
-
-            renderSettingsAccounts: function() {
-                const list = document.getElementById('settingsAccountList');
-                list.innerHTML = '';
-                if (state.accounts.length === 0) {
-                    list.innerHTML = '<p class="text-sm text-gray-500">尚無帳號設定。</p>';
-                    return;
-                }
-                state.accounts.forEach(acc => {
-                    const li = document.createElement('li');
-                    li.className = "flex justify-between items-center p-3 border border-gray-200 rounded-lg bg-white";
-                    li.innerHTML = `
-                        <div>
-                            <div class="font-medium text-gray-800 text-sm">${acc.name}</div>
-                            <div class="text-xs text-gray-500">${acc.email}</div>
-                        </div>
-                        <button onclick="app.removeAccount('${acc.id}')" class="text-red-500 hover:text-red-700 p-1" title="刪除連線">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    `;
-                    list.appendChild(li);
-                });
-                lucide.createIcons();
-            },
-
-            addAccount: async function() {
-                if (!user) return;
-                const name = document.getElementById('accName').value;
-                const email = document.getElementById('accEmail').value;
-                const imap = document.getElementById('accImap').value;
-                const smtp = document.getElementById('accSmtp').value;
-                const password = document.getElementById('accPassword').value;
-
-                const newAccount = {
-                    name, email, imap, smtp, password, 
-                    createdAt: Date.now()
-                };
-
-                try {
-                    const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'accounts'), newAccount);
-                    showToast("帳號新增成功！");
-                    document.getElementById('addAccountForm').reset();
-                    
-                    if (!state.selectedAccountId) {
-                        this.selectAccount(docRef.id);
-                    }
-                } catch (e) {
-                    console.error("Add account error", e);
-                    showToast("新增失敗");
-                }
-            },
-
-            removeAccount: async function(accountId) {
-                if (!user || !confirm("確定要移除此信箱連線嗎？相關的設定也會一併清除。")) return;
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', accountId));
-                    state.emails = state.emails.filter(e => e.accountId !== accountId);
-
-                    if (state.selectedAccountId === accountId) {
-                        this.selectAccount(null);
-                    }
-                    showToast("帳號已移除");
-                } catch (e) {
-                    console.error("Remove account error", e);
-                    showToast("移除失敗");
+                    showToast("傳送失敗，請檢查設定。");
                 }
             }
         };
 
-        // Utility Toast
         function showToast(message) {
             const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
+            if(!toast) return;
+            const msgEl = document.getElementById('toastMsg');
+            if(msgEl) msgEl.textContent = message;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => { toast.classList.add('translate-y-24', 'opacity-0'); }, 4000);
         }
 
-        // Boot
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             app.init();
         });
-
     </script>
 </body>
 </html>
