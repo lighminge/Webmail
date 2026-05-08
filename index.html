@@ -241,6 +241,7 @@
                         </select>
                         <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
                         
+                        <!-- 群組管理按鈕 -->
                         <button onclick="app.openGroupManagerModal()" class="anime-btn bg-blue-300 px-4 py-1.5 flex items-center shrink-0">
                             <i data-lucide="layers" class="w-5 h-5 mr-1"></i> 群組管理
                         </button>
@@ -349,6 +350,7 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto bg-white relative">
+                    <!-- 移除 divide-y 避免干擾左側邊框渲染 -->
                     <ul id="wm-email-list" class="w-full"></ul>
                     <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                         <i data-lucide="inbox" class="w-12 h-12 mb-2"></i>
@@ -389,6 +391,7 @@
                                         <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
                                             <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
                                         </button>
+                                        <!-- 列印按鈕 -->
                                         <button onclick="app.printEmail()" class="text-xs bg-gray-100 border border-gray-800 text-gray-800 px-2 py-0.5 rounded hover:bg-gray-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="列印此信件">
                                             <i data-lucide="printer" class="w-3 h-3 mr-1"></i> 列印
                                         </button>
@@ -399,7 +402,9 @@
                             <div id="pv-date" class="text-sm text-gray-500 font-bold shrink-0">Date</div>
                         </div>
                     </div>
+                    
                     <div id="pv-attachments" class="px-6 py-3 bg-gray-100 border-b-2 border-gray-800 hidden flex-wrap gap-2"></div>
+                    
                     <div class="flex-1 overflow-hidden m-4 anime-card text-lg leading-relaxed text-gray-800 flex flex-col" id="pv-body">
                         <!-- 郵件內容 -->
                     </div>
@@ -581,6 +586,7 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
+        // 封裝公共資料節點
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -825,6 +831,15 @@
                     showToast("群組新增成功");
                 } catch(e) { showToast("群組新增失敗"); }
             },
+            editGroup: async function(id, currentName) {
+                const newName = prompt("請輸入新的群組名稱：", currentName);
+                if (newName && newName.trim() !== "" && newName.trim() !== currentName) {
+                    try {
+                        await updateDoc(getDoc('groups', id), { name: newName.trim() });
+                        showToast("群組名稱已更新");
+                    } catch(e) { showToast("群組更新失敗"); }
+                }
+            },
             deleteGroup: async function(id) {
                 if (!confirm("確定要刪除此群組？這不會刪除群組內的聯絡人。")) return;
                 try {
@@ -837,10 +852,14 @@
                 if(!list) return;
                 list.innerHTML = state.groups.length === 0 ? '<li class="text-gray-500 text-sm py-2">目前沒有任何群組</li>' : '';
                 state.groups.forEach(g => {
+                    const safeNameForJs = escapeHTML(g.name).replace(/'/g, "\\'");
                     list.innerHTML += `
-                        <li class="flex justify-between items-center p-2 border-b border-gray-200">
-                            <span class="font-bold text-gray-800">${escapeHTML(g.name)}</span>
-                            <button onclick="app.deleteGroup('${g.id}')" class="text-red-500 hover:bg-red-100 p-1 rounded"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                        <li class="flex justify-between items-center p-2 border-b border-gray-200 hover:bg-gray-50">
+                            <span class="font-bold text-gray-800"><i data-lucide="tag" class="w-4 h-4 inline-block mr-1 text-gray-400"></i> ${escapeHTML(g.name)}</span>
+                            <div class="flex space-x-2">
+                                <button onclick="app.editGroup('${g.id}', '${safeNameForJs}')" class="anime-btn text-xs bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 flex items-center shadow-[1px_1px_0px_#1f2937] active:translate-y-[1px] active:shadow-none"><i data-lucide="edit-3" class="w-3 h-3 mr-1"></i> 修改</button>
+                                <button onclick="app.deleteGroup('${g.id}')" class="anime-btn text-xs bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 flex items-center shadow-[1px_1px_0px_#1f2937] active:translate-y-[1px] active:shadow-none"><i data-lucide="trash" class="w-3 h-3 mr-1"></i> 刪除</button>
+                            </div>
                         </li>
                     `;
                 });
@@ -1544,26 +1563,37 @@
                     return;
                 }
 
-                const htmlStr = '<!DOCTYPE html>\n<html>\n<head>\n' +
-                                '<meta charset="UTF-8">\n<title>' + subject + '</title>\n' +
-                                '<style>\n' +
-                                'body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; color: #000; }\n' +
-                                '.print-header { border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }\n' +
-                                '.print-subject { font-size: 24px; font-weight: bold; margin-bottom: 10px; }\n' +
-                                '.print-meta { font-size: 14px; margin-bottom: 5px; color: #333; }\n' +
-                                '</style>\n</head>\n<body>\n' +
-                                '<div class="print-header">\n' +
-                                '    <div class="print-subject">' + subject + '</div>\n' +
-                                '    <div class="print-meta"><strong>寄件者：</strong> ' + safeSenderName + ' &lt;' + safeSenderEmail + '&gt;</div>\n' +
-                                '    <div class="print-meta"><strong>日期：</strong> ' + dateStr + '</div>\n' +
-                                '</div>\n' +
-                                '<div class="print-content">\n' + contentHtml + '\n</div>\n' +
-                                '<scr' + 'ipt>\n' +
-                                '    window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 500); };\n' +
-                                '</scr' + 'ipt>\n</body>\n</html>';
+                const htmlParts = [
+                    '<!DOCTYPE html>',
+                    '<html>',
+                    '<head>',
+                    '<meta charset="UTF-8">',
+                    '<title>' + subject + '</title>',
+                    '<style>',
+                    'body { font-family: sans-serif; padding: 20px; line-height: 1.6; color: #000; }',
+                    '.print-header { border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }',
+                    '.print-subject { font-size: 24px; font-weight: bold; margin-bottom: 10px; }',
+                    '.print-meta { font-size: 14px; margin-bottom: 5px; color: #333; }',
+                    '</style>',
+                    '</head>',
+                    '<body>',
+                    '<div class="print-header">',
+                    '<div class="print-subject">' + subject + '</div>',
+                    '<div class="print-meta"><strong>寄件者：</strong> ' + safeSenderName + ' &lt;' + safeSenderEmail + '&gt;</div>',
+                    '<div class="print-meta"><strong>日期：</strong> ' + dateStr + '</div>',
+                    '</div>',
+                    '<div class="print-content">',
+                    contentHtml,
+                    '</div>',
+                    '<scr' + 'ipt>',
+                    'window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 500); };',
+                    '</scr' + 'ipt>',
+                    '</body>',
+                    '</html>'
+                ];
                 
                 printWindow.document.open();
-                printWindow.document.write(htmlStr);
+                printWindow.document.write(htmlParts.join('\n'));
                 printWindow.document.close();
             },
 
