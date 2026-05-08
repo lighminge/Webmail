@@ -83,6 +83,14 @@
             font-weight: bold;
         }
         .view-hidden { display: none !important; }
+        
+        /* 為了讓可編輯 div 顯示 placeholder */
+        [contenteditable=true]:empty:before {
+            content: attr(placeholder);
+            color: #9ca3af;
+            pointer-events: none;
+            display: block;
+        }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col">
@@ -527,7 +535,9 @@
                     <span class="font-bold w-20 shrink-0">主旨</span>
                     <input type="text" id="composeSubject" class="anime-input flex-1" placeholder="請輸入主旨">
                 </div>
-                <textarea id="composeBody" class="anime-input flex-1 w-full resize-none p-4 text-lg" placeholder="撰寫您的郵件內容..."></textarea>
+                
+                <!-- 富文本編輯區域 -->
+                <div id="composeBody" contenteditable="true" class="anime-input flex-1 w-full overflow-y-auto p-4 text-lg bg-white" placeholder="撰寫您的郵件內容..."></div>
                 
                 <div class="border-2 border-dashed border-gray-400 p-4 rounded-xl bg-white shrink-0 mt-2">
                     <div class="flex items-center justify-between mb-2">
@@ -1259,15 +1269,23 @@
                         if (data.success) {
                             const newTotal = data.total;
                             
-                            if (isAutoSync && newTotal > state.totalInboxCount) {
-                                showToast(`📥 收到新郵件！信箱目前共有 ${newTotal} 封信。`);
-                            }
-                            
-                            state.totalInboxCount = newTotal;
-                            document.getElementById('wm-total-count').textContent = newTotal;
-                            this.renderPaginationDropdown();
-
-                            if (!isAutoSync) {
+                            if (isAutoSync) {
+                                if (newTotal !== state.totalInboxCount) {
+                                    showToast(`📥 信箱有更新！自動載入最新郵件...`);
+                                    state.totalInboxCount = newTotal;
+                                    document.getElementById('wm-total-count').textContent = newTotal;
+                                    this.renderPaginationDropdown();
+                                    
+                                    const page = document.getElementById('inbox-page-select')?.value || 1;
+                                    if (page == 1) this.fetchRealEmails(1); 
+                                } else {
+                                    const syncEl = document.getElementById('wm-last-sync');
+                                    if(syncEl) syncEl.textContent = `最後同步：${new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}`;
+                                }
+                            } else {
+                                state.totalInboxCount = newTotal;
+                                document.getElementById('wm-total-count').textContent = newTotal;
+                                this.renderPaginationDropdown();
                                 if (newTotal === 0) {
                                     state.imapEmails = [];
                                     this.renderWebmailList();
@@ -1893,7 +1911,7 @@
                 document.getElementById('composeReplyToId').value = ''; 
                 document.getElementById('composeToInput').value = '';
                 document.getElementById('composeSubject').value = '';
-                document.getElementById('composeBody').value = '';
+                document.getElementById('composeBody').innerHTML = '';
                 
                 state.composeRecipients = [];
                 this.renderRecipients();
@@ -1915,14 +1933,21 @@
                     this.addRecipient(replyToStr);
 
                     document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
-                    document.getElementById('composeBody').value = `\n\n--- 原始郵件 ---\n${state.viewingEmail.body}`;
+                    
+                    let replyHtml = `<br><br><div style="border-left: 3px solid #ccc; padding-left: 10px; margin-left: 5px; color: #555;">
+                        <p style="margin-bottom: 5px;">於 ${new Date(state.viewingEmail.timestamp).toLocaleString('zh-TW')}，${escapeHTML(sName)} &lt;${escapeHTML(sEmail)}&gt; 寫道：</p>
+                        ${state.viewingEmail.html || escapeHTML(state.viewingEmail.body).replace(/\n/g, '<br>')}
+                    </div>`;
+                    document.getElementById('composeBody').innerHTML = replyHtml;
+
                 } else if (mode === 'edit' && state.viewingEmail) {
                     document.getElementById('composeDraftId').value = state.viewingEmail.id;
                     if (state.viewingEmail.recipient) {
                         this.addRecipient(state.viewingEmail.recipient);
                     }
                     document.getElementById('composeSubject').value = state.viewingEmail.subject;
-                    document.getElementById('composeBody').value = state.viewingEmail.body;
+                    
+                    document.getElementById('composeBody').innerHTML = state.viewingEmail.html || escapeHTML(state.viewingEmail.body).replace(/\n/g, '<br>');
                     
                     if (state.viewingEmail.attachments && Array.isArray(state.viewingEmail.attachments)) {
                         state.composeAttachments = [...state.viewingEmail.attachments];
@@ -1937,7 +1962,10 @@
             saveDraft: async function() {
                 const acc = state.accounts.find(a => a.id === state.selectedAccountId);
                 const draftId = document.getElementById('composeDraftId').value;
-                const bodyText = document.getElementById('composeBody').value;
+                
+                const composeBodyEl = document.getElementById('composeBody');
+                const bodyHtml = composeBodyEl.innerHTML;
+                const bodyText = composeBodyEl.innerText;
                 
                 this.addRecipientFromInput();
                 const to = state.composeRecipients.join(', ');
@@ -1955,7 +1983,7 @@
                     recipient: to,
                     subject: document.getElementById('composeSubject').value || '(無主旨)',
                     body: bodyText,
-                    html: bodyText.replace(/\n/g, '<br>'), 
+                    html: bodyHtml, 
                     bodySnippet: bodyText.substring(0, 40),
                     timestamp: Date.now(),
                     read: true,
@@ -1982,7 +2010,11 @@
                 this.addRecipientFromInput();
                 const to = state.composeRecipients.join(', ');
                 const subject = document.getElementById('composeSubject').value;
-                const bodyText = document.getElementById('composeBody').value;
+                
+                const composeBodyEl = document.getElementById('composeBody');
+                const bodyHtml = composeBodyEl.innerHTML;
+                const bodyText = composeBodyEl.innerText;
+                
                 const replyToId = document.getElementById('composeReplyToId').value;
                 
                 if (!to) { showToast("請輸入收件者"); return; }
@@ -2000,7 +2032,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             user: acc.email, pass: acc.password, to, subject, 
-                            text: bodyText, html: bodyText.replace(/\n/g, '<br>'), smtpHost: acc.smtp,
+                            text: bodyText, html: bodyHtml, smtpHost: acc.smtp,
                             attachments: state.composeAttachments 
                         })
                     });
@@ -2021,7 +2053,7 @@
 
                     await addDoc(getCol('local_emails'), {
                         accountId: acc.id, folder: 'sent', sender: acc.email, senderName: acc.name, recipient: to, subject, 
-                        body: bodyText, html: bodyText.replace(/\n/g, '<br>'),
+                        body: bodyText, html: bodyHtml,
                         bodySnippet: bodyText.substring(0, 40), timestamp: Date.now(), read: true,
                         attachments: slimAttachments 
                     });
