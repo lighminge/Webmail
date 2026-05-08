@@ -311,28 +311,39 @@
                             <i data-lucide="flame" class="w-5 h-5"></i>
                         </button>
                     </div>
-                    <button onclick="app.fetchRealEmails(true)" class="p-1.5 hover:bg-gray-200 rounded text-gray-700 transition" title="強制重新整理">
+                    <button onclick="app.fetchInboxCount(false)" class="p-1.5 hover:bg-gray-200 rounded text-gray-700 transition" title="強制重新整理">
                         <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <!-- 排序功能列 -->
-                <div class="px-4 py-2 bg-blue-50 border-b-2 border-gray-800 text-sm font-bold flex justify-between items-center">
-                    <div class="flex items-center gap-2">
+                
+                <!-- 【新增】分頁與排序功能列 -->
+                <div class="px-3 py-2 bg-blue-50 border-b-2 border-gray-800 text-sm font-bold flex flex-col gap-2">
+                    <div class="flex justify-between items-center w-full">
                         <span id="wm-folder-title">收件匣</span>
-                        <select id="wm-sort-select" class="anime-input text-xs py-0.5 px-1.5 bg-white cursor-pointer" onchange="app.renderWebmailList()">
+                        <span class="text-xs">總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- 收件匣專用：分頁選單 -->
+                        <div id="inbox-pagination-wrapper" class="flex items-center gap-1 hidden">
+                            <select id="inbox-page-select" class="anime-input text-xs py-1 px-1 bg-white cursor-pointer"></select>
+                            <button onclick="app.fetchCurrentPage()" class="bg-blue-600 text-white border-2 border-gray-800 rounded px-2 py-1 text-xs hover:bg-blue-700 shadow-[1px_1px_0px_#1f2937] transition-transform active:translate-y-[1px] active:shadow-none font-bold shrink-0">讀取</button>
+                        </div>
+                        
+                        <!-- 排序選單 -->
+                        <select id="wm-sort-select" class="anime-input text-xs py-1 px-1.5 bg-white cursor-pointer ml-auto" onchange="app.renderWebmailList()">
                             <option value="date-desc">日期 (新 ➔ 舊)</option>
                             <option value="date-asc">日期 (舊 ➔ 新)</option>
                             <option value="sender">寄件人 / 收件人</option>
                         </select>
                     </div>
-                    <span class="text-xs md:text-sm">總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
                 </div>
+
                 <div class="flex-1 overflow-y-auto bg-white relative">
-                    <!-- 移除 divide-y 避免干擾左側邊框渲染 -->
                     <ul id="wm-email-list" class="w-full"></ul>
-                    <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400">
+                    <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                         <i data-lucide="inbox" class="w-12 h-12 mb-2"></i>
-                        <p class="font-bold">沒有郵件</p>
+                        <p class="font-bold" id="wm-empty-text">沒有郵件</p>
                     </div>
                 </div>
             </section>
@@ -359,7 +370,6 @@
                                         <button onclick="app.addSenderToContacts()" class="text-xs bg-green-100 border border-green-800 text-green-800 px-2 py-0.5 rounded hover:bg-green-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="加入通訊錄">
                                             <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i> 加入
                                         </button>
-                                        <!-- 刪除此信件按鈕 -->
                                         <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
                                             <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
                                         </button>
@@ -370,6 +380,10 @@
                             <div id="pv-date" class="text-sm text-gray-500 font-bold shrink-0">Date</div>
                         </div>
                     </div>
+                    
+                    <!-- 【新增】附件下載區塊 -->
+                    <div id="pv-attachments" class="px-6 py-3 bg-gray-100 border-b-2 border-gray-800 hidden flex-wrap gap-2"></div>
+                    
                     <div class="flex-1 overflow-hidden m-4 anime-card text-lg leading-relaxed text-gray-800 flex flex-col" id="pv-body">
                         <!-- 郵件內容 -->
                     </div>
@@ -477,7 +491,6 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
-        // 封裝公共資料節點 (跨瀏覽器/裝置共享，從最上層建立資料)
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -492,7 +505,8 @@
             viewingEmail: null,
             selectedEmailIds: new Set(), 
             lastImapIds: new Set(),
-            isSyncing: false
+            isSyncing: false,
+            totalInboxCount: 0 // 【新增】收件匣總數量
         };
 
         // 安全過濾 HTML 函式，防止信件破版
@@ -518,7 +532,6 @@
         window.app = {
             init: async function() {
                 try {
-                    // 強制執行匿名登入，免密碼直接取用公共資料
                     await signInAnonymously(auth);
 
                     onAuthStateChanged(auth, (currentUser) => {
@@ -583,7 +596,7 @@
                 if(activeView) activeView.classList.remove('view-hidden');
                 
                 if (viewId === 'webmail' && state.selectedAccountId) {
-                    if(state.currentFolder === 'inbox') this.fetchRealEmails();
+                    if(state.currentFolder === 'inbox') this.fetchInboxCount();
                     else this.renderWebmailList();
                 }
                 lucide.createIcons();
@@ -795,7 +808,7 @@
                     const acc = state.accounts.find(a => a.id === accId);
                     this.startAutoSync(acc.checkInterval || 60);
                     if(state.currentView === 'webmail' && state.currentFolder === 'inbox') {
-                        this.fetchRealEmails();
+                        this.fetchInboxCount();
                     } else {
                         this.renderWebmailList();
                     }
@@ -826,17 +839,18 @@
                 this.closeEmailPreview();
                 this.clearSelection();
                 
-                if (folder === 'inbox') this.fetchRealEmails();
+                if (folder === 'inbox') this.fetchInboxCount();
                 else this.renderWebmailList();
             },
 
+            // 【變更】自動同步改為「只查數量不抓信」，避免卡死
             startAutoSync: function(seconds) {
                 this.stopAutoSync();
                 const st = document.getElementById('wm-status-text');
                 if(st) st.textContent = `狀態：自動同步 (${seconds}s)`;
                 checkTimer = setInterval(() => {
                     if (state.currentView === 'webmail' && state.selectedAccountId && state.currentFolder === 'inbox') {
-                        this.fetchRealEmails(false); 
+                        this.fetchInboxCount(true); 
                     }
                 }, seconds * 1000);
             },
@@ -856,6 +870,7 @@
                 }
             },
             
+            // 【變更】草稿標籤顯示 "共 X 筆"
             updateFolderBadges: function() {
                 if (!state.selectedAccountId) return;
                 
@@ -863,7 +878,7 @@
                 const badgeInbox = document.getElementById('wm-badge-inbox');
                 if (badgeInbox) {
                     if (unreadInbox > 0) {
-                        badgeInbox.textContent = unreadInbox;
+                        badgeInbox.textContent = `未讀 ${unreadInbox} 筆`;
                         badgeInbox.classList.remove('hidden');
                     } else {
                         badgeInbox.classList.add('hidden');
@@ -874,7 +889,7 @@
                 const badgeDrafts = document.getElementById('wm-badge-drafts');
                 if (badgeDrafts) {
                     if (draftsCount > 0) {
-                        badgeDrafts.textContent = draftsCount;
+                        badgeDrafts.textContent = `共 ${draftsCount} 筆`;
                         badgeDrafts.classList.remove('hidden');
                     } else {
                         badgeDrafts.classList.add('hidden');
@@ -882,10 +897,91 @@
                 }
             },
 
-            fetchRealEmails: async function(showLoadingUI = true) {
+            // 【新增】分頁下拉選單產生器
+            renderPaginationDropdown: function() {
+                const wrapper = document.getElementById('inbox-pagination-wrapper');
+                const select = document.getElementById('inbox-page-select');
+                if (!wrapper || !select) return;
+
+                if (state.currentFolder !== 'inbox' || state.totalInboxCount === 0) {
+                    wrapper.classList.add('hidden');
+                    return;
+                }
+
+                wrapper.classList.remove('hidden');
+                select.innerHTML = '';
+                const totalPages = Math.ceil(state.totalInboxCount / 30);
+                
+                for (let i = 1; i <= totalPages; i++) {
+                    const end = state.totalInboxCount - (i - 1) * 30;
+                    const start = Math.max(1, end - 29);
+                    select.innerHTML += `<option value="${i}">第 ${i} 頁 (信件 ${start}~${end})</option>`;
+                }
+            },
+
+            fetchCurrentPage: function() {
+                const page = document.getElementById('inbox-page-select')?.value || 1;
+                this.fetchRealEmails(parseInt(page));
+            },
+
+            // 【新增】智慧分頁：先查數量，再決定是否自動抓取
+            fetchInboxCount: async function(isAutoSync = false) {
+                if (!state.selectedAccountId) return;
+                const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                if (!activeAcc) return;
+
+                try {
+                    const res = await fetch(VERCEL_API_BASE + '/api/emails/count', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap })
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            const newTotal = data.total;
+                            
+                            if (isAutoSync && newTotal > state.totalInboxCount) {
+                                showToast(`📥 收到新郵件！信箱目前共有 ${newTotal} 封信。`);
+                            }
+                            
+                            state.totalInboxCount = newTotal;
+                            document.getElementById('wm-total-count').textContent = newTotal;
+                            this.renderPaginationDropdown();
+
+                            // 如果不是自動同步背景檢查，且是使用者手動切換進來的：
+                            if (!isAutoSync) {
+                                if (newTotal === 0) {
+                                    state.imapEmails = [];
+                                    this.renderWebmailList();
+                                } else if (newTotal <= 30) {
+                                    // 30 封以內，自動抓取第 1 頁
+                                    this.fetchRealEmails(1);
+                                } else {
+                                    // 大於 30 封，不自動抓取，顯示提示 UI 讓使用者手動讀取
+                                    const listEl = document.getElementById('wm-email-list');
+                                    listEl.innerHTML = `<li class="p-8 text-center text-blue-700 bg-blue-50 font-bold border-2 border-dashed border-blue-300 m-4 rounded-xl"><i data-lucide="info" class="w-8 h-8 mx-auto mb-2 text-blue-500"></i>您的信箱共有 ${newTotal} 封郵件。<br>為了加快速度，請從上方選單選擇頁數，然後點擊「讀取」按鈕來載入。</li>`;
+                                    listEl.classList.remove('hidden');
+                                    document.getElementById('wm-empty-state').classList.add('hidden');
+                                    lucide.createIcons();
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("查數量失敗", e);
+                }
+            },
+
+            // 【修改】加入分頁參數，防止卡死
+            fetchRealEmails: async function(page = 1) {
                 if (!state.selectedAccountId) return;
                 
-                if (state.isSyncing) return; 
+                if (state.isSyncing) {
+                    showToast("系統正在同步中，請稍候...");
+                    return; 
+                }
                 state.isSyncing = true;
 
                 const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
@@ -896,18 +992,16 @@
                 
                 const listEl = document.getElementById('wm-email-list');
 
-                if (showLoadingUI && listEl) {
-                    listEl.innerHTML = `<li class="p-8 text-center text-gray-500 font-bold"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500"></i>正在同步伺服器...</li>`;
-                    listEl.classList.remove('hidden');
-                    document.getElementById('wm-empty-state').classList.add('hidden');
-                    lucide.createIcons();
-                }
+                listEl.innerHTML = `<li class="p-8 text-center text-gray-500 font-bold"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500"></i>正在從伺服器下載第 ${page} 頁的郵件...</li>`;
+                listEl.classList.remove('hidden');
+                document.getElementById('wm-empty-state').classList.add('hidden');
+                lucide.createIcons();
 
                 try {
                     const res = await fetch(VERCEL_API_BASE + '/api/emails', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap })
+                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, page: page, limit: 30 })
                     });
                     
                     if (!res.ok) throw new Error("伺服器連線異常");
@@ -915,30 +1009,23 @@
                     if (!data.success) throw new Error(data.error);
 
                     const newEmails = data.emails.map(e => ({ ...e, accountId: activeAcc.id, folder: 'inbox' }));
-                    state.imapEmails = state.imapEmails.filter(e => e.accountId !== activeAcc.id).concat(newEmails);
                     
-                    if (!showLoadingUI) {
-                        let newCount = 0;
-                        newEmails.forEach(em => {
-                            if (!state.lastImapIds.has(String(em.id))) newCount++;
-                        });
-                        if (newCount > 0) {
-                            showToast(`自動同步完成：收到 ${newCount} 封新郵件！`);
-                        }
-                    }
+                    // 因為有分頁，我們只保留這 30 筆信件，避免記憶體塞爆
+                    state.imapEmails = newEmails;
                     
-                    state.lastImapIds = new Set(newEmails.map(e => String(e.id)));
+                    state.totalInboxCount = data.total;
+                    document.getElementById('wm-total-count').textContent = data.total;
+                    this.renderPaginationDropdown();
+
                     const syncEl = document.getElementById('wm-last-sync');
                     if(syncEl) syncEl.textContent = `最後同步：${new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}`;
 
                     this.updateFolderBadges();
-                    if (state.currentFolder === 'inbox') this.renderWebmailList();
+                    this.renderWebmailList();
                     
                 } catch (e) {
-                    if (showLoadingUI && listEl) {
-                        listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>連線失敗，可能是設定錯誤或被阻擋。</li>`;
-                        lucide.createIcons();
-                    }
+                    listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>讀取失敗，可能是設定錯誤或被阻擋。</li>`;
+                    lucide.createIcons();
                 } finally {
                     state.isSyncing = false;
                 }
@@ -973,10 +1060,17 @@
                 const listEl = document.getElementById('wm-email-list');
                 const emptyState = document.getElementById('wm-empty-state');
                 if(!listEl) return;
+                
+                // 如果目前在收件匣且還沒載入該頁，就不清空畫面 (讓提示文字保留)
+                if (state.currentFolder === 'inbox' && state.imapEmails.length === 0 && state.totalInboxCount > 0) {
+                    return;
+                }
+
                 listEl.innerHTML = '';
                 
                 let emails = this.getCurrentEmails();
                 
+                // 排序功能
                 const sortType = document.getElementById('wm-sort-select')?.value || 'date-desc';
                 emails.sort((a, b) => {
                     if (sortType === 'date-desc') return b.timestamp - a.timestamp;
@@ -989,11 +1083,12 @@
                     return 0;
                 });
                 
+                // 防破版機制
                 emails = emails.slice(0, 50);
 
                 const unreadCount = emails.filter(e => !e.read).length;
                 const totEl = document.getElementById('wm-total-count');
-                if(totEl) totEl.textContent = this.getCurrentEmails().length; 
+                if(totEl && state.currentFolder !== 'inbox') totEl.textContent = this.getCurrentEmails().length; 
                 const unreadEl = document.getElementById('wm-unread-count');
                 if(unreadEl) unreadEl.textContent = unreadCount;
                 
@@ -1001,7 +1096,10 @@
 
                 if (emails.length === 0) {
                     listEl.classList.add('hidden');
-                    if(emptyState) emptyState.classList.remove('hidden');
+                    if(emptyState) {
+                        emptyState.classList.remove('hidden');
+                        document.getElementById('wm-empty-text').textContent = state.currentFolder === 'inbox' ? "信箱內目前沒有郵件" : "沒有郵件";
+                    }
                     const selectAllCb = document.getElementById('selectAllCb');
                     if (selectAllCb) selectAllCb.checked = false;
                 } else {
@@ -1048,6 +1146,9 @@
                         const safeSubject = escapeHTML(email.subject || '(無主旨)');
                         const safeSnippet = escapeHTML(email.bodySnippet || '...');
 
+                        // 判斷是否有附件，顯示小小迴紋針圖示
+                        const attachmentIcon = (email.attachments && email.attachments.length > 0) ? `<i data-lucide="paperclip" class="w-3 h-3 text-gray-400 mr-1 inline-block align-middle"></i>` : '';
+
                         li.innerHTML = `
                             <div class="mr-4" onclick="event.stopPropagation()">
                                 <input type="checkbox" class="anime-checkbox" value="${strId}" ${isSelected ? 'checked' : ''} onclick="app.toggleEmailSelect(this, '${strId}')">
@@ -1059,7 +1160,7 @@
                                         ${repliedBadge}
                                         <span class="truncate">${safeSender}</span>
                                     </div>
-                                    <p class="text-xs font-bold ${email.read ? 'text-gray-400' : 'text-orange-600'} flex-shrink-0">${dateStr}</p>
+                                    <p class="text-xs font-bold ${email.read ? 'text-gray-400' : 'text-orange-600'} flex-shrink-0">${attachmentIcon}${dateStr}</p>
                                 </div>
                                 <p class="truncate ${subjectClass} mb-1">${safeSubject}</p>
                                 <p class="text-xs ${email.read ? 'text-gray-400' : 'text-gray-600'} truncate mt-1">${safeSnippet}</p>
@@ -1067,6 +1168,7 @@
                         `;
                         listEl.appendChild(li);
                     });
+                    lucide.createIcons();
                 }
             },
 
@@ -1109,6 +1211,23 @@
 
                 document.getElementById('pv-avatar').textContent = safeSenderName.charAt(0).toUpperCase();
                 
+                // 【新增】附件下載區塊渲染
+                const attContainer = document.getElementById('pv-attachments');
+                if (email.attachments && email.attachments.length > 0) {
+                    attContainer.classList.remove('hidden');
+                    attContainer.innerHTML = '<span class="font-bold text-sm text-gray-600 mr-2 flex items-center"><i data-lucide="paperclip" class="w-4 h-4 mr-1"></i> 附件：</span>';
+                    email.attachments.forEach(att => {
+                        if (att.error) {
+                            attContainer.innerHTML += `<span class="text-xs bg-red-100 text-red-800 border border-red-300 px-2 py-1 rounded">${escapeHTML(att.filename)} (過大無法下載)</span>`;
+                        } else {
+                            attContainer.innerHTML += `<a download="${escapeHTML(att.filename)}" href="data:${att.contentType};base64,${att.content}" class="text-xs bg-blue-100 text-blue-800 border-2 border-blue-800 px-2 py-1 rounded hover:bg-blue-200 shadow-[2px_2px_0px_#1e3a8a] transition-transform active:translate-y-[2px] active:shadow-none flex items-center gap-1 font-bold"><i data-lucide="download" class="w-3 h-3"></i> ${escapeHTML(att.filename)} (${Math.round(att.size/1024)} KB)</a>`;
+                        }
+                    });
+                } else {
+                    attContainer.classList.add('hidden');
+                    attContainer.innerHTML = '';
+                }
+
                 const pvBody = document.getElementById('pv-body');
                 
                 if (email.html && email.html.trim().length > 0) {
@@ -1122,6 +1241,8 @@
                     pvBody.classList.remove('p-2');
                     pvBody.classList.add('p-8');
                 }
+                
+                lucide.createIcons();
             },
 
             closeEmailPreview: function() {
@@ -1160,6 +1281,7 @@
                         });
                         if (!response.ok) throw new Error("API異常");
                         state.imapEmails = state.imapEmails.filter(e => String(e.id) !== emailId);
+                        state.totalInboxCount--;
                     } catch (e) {
                         console.warn(e);
                         state.imapEmails = state.imapEmails.filter(e => String(e.id) !== emailId);
@@ -1194,6 +1316,7 @@
                         });
                         if (!response.ok) throw new Error("API異常");
                         state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(String(e.id)));
+                        state.totalInboxCount -= state.selectedEmailIds.size;
                     } catch (e) {
                         console.warn(e);
                         state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(String(e.id)));
