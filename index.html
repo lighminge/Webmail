@@ -902,12 +902,12 @@
                         const strId = String(email.id);
                         const isSelected = state.selectedEmailIds.has(strId);
                         
-                        // 動態決定信件列的背景與邊框樣式
+                        // 動態決定信件列的背景與邊框樣式 (增強選取狀態)
                         let bgClass = '';
                         if (isSelected) {
-                            bgClass = 'bg-yellow-200 border-yellow-500 shadow-[inset_4px_0_0_#eab308]'; // 選取狀態非常明顯
+                            bgClass = 'bg-yellow-200 border-yellow-500 shadow-[inset_6px_0_0_#eab308]'; // 選取狀態非常明顯
                         } else if (!email.read) {
-                            bgClass = 'bg-orange-50/70 border-orange-400'; // 未讀狀態
+                            bgClass = 'bg-orange-50 border-orange-400'; // 未讀狀態
                         } else {
                             bgClass = 'bg-white border-transparent hover:bg-gray-50'; // 已讀狀態
                         }
@@ -917,10 +917,10 @@
                         
                         const dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
                         
-                        // 字體粗細與未讀 Badge 控制
-                        const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black';
-                        const subjectClass = email.read ? 'text-gray-500 font-normal' : 'text-gray-900 font-bold text-base';
-                        const unreadBadge = email.read ? '' : `<span class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-md border border-gray-800 mr-2 font-bold shadow-[1px_1px_0px_#1f2937] shrink-0 animate-pulse">🔴 未讀</span>`;
+                        // 字體粗細與未讀 Badge 控制 (一眼分辨已讀未讀)
+                        const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black text-lg';
+                        const subjectClass = email.read ? 'text-gray-500 font-normal' : 'text-gray-900 font-bold';
+                        const unreadBadge = email.read ? '' : `<span class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded border border-red-800 mr-2 shadow-[2px_2px_0px_#7f1d1d] shrink-0 animate-pulse inline-block align-middle">未讀</span>`;
                         
                         li.innerHTML = `
                             <div class="mr-4" onclick="event.stopPropagation()">
@@ -928,10 +928,10 @@
                             </div>
                             <div class="flex-1 min-w-0" onclick="app.previewEmail('${strId}')">
                                 <div class="flex justify-between items-baseline mb-1">
-                                    <p class="truncate pr-2 ${senderClass} flex items-center">
+                                    <div class="truncate pr-2 ${senderClass} flex items-center">
                                         ${unreadBadge}
                                         <span class="truncate">${email.senderName || email.recipient || '(無收件人)'}</span>
-                                    </p>
+                                    </div>
                                     <p class="text-xs font-bold ${email.read ? 'text-gray-400' : 'text-orange-600'} flex-shrink-0">${dateStr}</p>
                                 </div>
                                 <p class="truncate ${subjectClass} mb-1">${email.subject || '(無主旨)'}</p>
