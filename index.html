@@ -281,7 +281,8 @@
                     </select>
                 </div>
                 <div class="p-4">
-                    <button onclick="app.openCompose()" class="anime-btn w-full bg-orange-400 text-white py-3 flex items-center justify-center text-lg shadow-[4px_4px_0px_#1f2937]">
+                    <!-- 【修改】點擊時明確傳入 'new'，代表開啟全新的乾淨信件 -->
+                    <button onclick="app.openCompose('new')" class="anime-btn w-full bg-orange-400 text-white py-3 flex items-center justify-center text-lg shadow-[4px_4px_0px_#1f2937]">
                         <i data-lucide="pen" class="w-5 h-5 mr-2"></i> 撰寫郵件
                     </button>
                 </div>
@@ -375,12 +376,12 @@
                                     <div class="font-bold text-gray-800 text-lg flex items-center flex-wrap gap-2">
                                         <span id="pv-sender-name">Sender</span>
                                         
-                                        <!-- 草稿編輯寄信按鈕 -->
-                                        <button id="pv-btn-edit" onclick="app.openCompose(false)" class="hidden text-xs bg-orange-100 border border-orange-800 text-orange-800 px-2 py-0.5 rounded hover:bg-orange-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="編輯並寄出草稿">
+                                        <!-- 草稿編輯寄信按鈕：明確傳入 'edit' -->
+                                        <button id="pv-btn-edit" onclick="app.openCompose('edit')" class="hidden text-xs bg-orange-100 border border-orange-800 text-orange-800 px-2 py-0.5 rounded hover:bg-orange-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="編輯並寄出草稿">
                                             <i data-lucide="send" class="w-3 h-3 mr-1"></i> 寄信
                                         </button>
-                                        <!-- 回信按鈕 -->
-                                        <button id="pv-btn-reply" onclick="app.openCompose(true)" class="text-xs bg-blue-100 border border-blue-800 text-blue-800 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="回覆此信件">
+                                        <!-- 回信按鈕：明確傳入 'reply' -->
+                                        <button id="pv-btn-reply" onclick="app.openCompose('reply')" class="text-xs bg-blue-100 border border-blue-800 text-blue-800 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="回覆此信件">
                                             <i data-lucide="reply" class="w-3 h-3 mr-1"></i> 回信
                                         </button>
                                         
@@ -501,7 +502,7 @@
         </div>
     </div>
 
-    <!-- Modal: 撰寫/編輯草稿郵件 -->
+    <!-- Modal: 撰寫/編輯草稿/回信 郵件 -->
     <div id="composeModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
         <div class="anime-card bg-white w-full max-w-4xl flex flex-col h-[90vh]">
              <div class="px-6 py-4 border-b-2 border-gray-800 flex justify-between items-center bg-blue-50 rounded-t-xl shrink-0">
@@ -514,11 +515,14 @@
                 <input type="hidden" id="composeDraftId">
                 <input type="hidden" id="composeReplyToId">
                 
-                <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                    <span class="font-bold w-20 shrink-0">收件者</span>
-                    <!-- 【修改】加入 onblur 自動補齊通訊錄名稱功能 -->
-                    <input type="text" id="composeTo" class="anime-input flex-1" placeholder="填寫 email (自動偵測聯絡人) 或從右方開啟通訊錄選取 ➔" onblur="app.autoCompleteContact()">
-                    <button type="button" onclick="app.openContactSelector()" class="anime-btn bg-green-200 hover:bg-green-300 px-4 py-2 flex items-center shrink-0">
+                <!-- 【新增】標籤化收件者輸入框 -->
+                <div class="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-2">
+                    <span class="font-bold w-20 shrink-0 mt-2">收件者</span>
+                    <div class="anime-input flex-1 flex flex-wrap gap-1 p-1.5 items-center cursor-text min-h-[42px] bg-white border-2 border-[var(--comic-border)] rounded-lg shadow-[2px_2px_0px_#d1d5db]" onclick="document.getElementById('composeToInput').focus()">
+                        <div id="composeToTags" class="flex flex-wrap gap-1 empty:hidden"></div>
+                        <input type="text" id="composeToInput" class="outline-none flex-1 min-w-[150px] bg-transparent text-sm py-1" placeholder="輸入 email (按 Enter 加入) 或選取通訊錄 ➔" onblur="app.addRecipientFromInput()" onkeydown="if(event.key==='Enter'||event.key===','){event.preventDefault();app.addRecipientFromInput();}">
+                    </div>
+                    <button type="button" onclick="app.openContactSelector()" class="anime-btn bg-green-200 hover:bg-green-300 px-4 py-2 flex items-center shrink-0 mt-0 sm:mt-1">
                         <i data-lucide="book-open" class="w-4 h-4 mr-1"></i> 📖 開啟通訊錄
                     </button>
                 </div>
@@ -588,7 +592,6 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
-        // 封裝公共資料節點
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -606,7 +609,8 @@
             lastImapIds: new Set(),
             isSyncing: false,
             totalInboxCount: 0,
-            composeAttachments: [] 
+            composeAttachments: [],
+            composeRecipients: [] // 【新增】收件者標籤陣列
         };
 
         const escapeHTML = (str) => {
@@ -691,7 +695,6 @@
                     if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
                         this.renderWebmailList();
                         
-                        // 【修復1】草稿與寄件備份有更新時，即時刷新右側預覽畫面
                         if (state.viewingEmail && (state.currentFolder === 'drafts' || state.currentFolder === 'sent')) {
                             const updatedEmail = state.localEmails.find(e => e.id === state.viewingEmail.id);
                             if (updatedEmail) {
@@ -1056,6 +1059,58 @@
                 lucide.createIcons();
             },
 
+            // ================= 撰寫郵件：收件者標籤管理 =================
+            addRecipient: function(emailStr) {
+                if (!emailStr || !emailStr.trim()) return;
+                // 支援用逗號分隔一次貼上多個
+                const parts = emailStr.split(',').map(p => p.trim()).filter(p => p !== '');
+                
+                parts.forEach(part => {
+                    let formatted = part;
+                    // 如果沒有包含 < > 符號，代表可能是單純的信箱或名字
+                    if (!part.includes('<') || !part.includes('>')) {
+                        const contact = state.contacts.find(c => c.email.toLowerCase() === part.toLowerCase());
+                        if (contact) {
+                            formatted = `${contact.name} <${contact.email}>`;
+                        }
+                    }
+                    // 避免重複加入
+                    if (!state.composeRecipients.includes(formatted)) {
+                        state.composeRecipients.push(formatted);
+                    }
+                });
+                this.renderRecipients();
+            },
+            
+            removeRecipient: function(index) {
+                state.composeRecipients.splice(index, 1);
+                this.renderRecipients();
+            },
+            
+            renderRecipients: function() {
+                const container = document.getElementById('composeToTags');
+                if (!container) return;
+                container.innerHTML = '';
+                state.composeRecipients.forEach((rec, index) => {
+                    container.innerHTML += `
+                        <div class="flex items-center bg-blue-100 text-blue-800 border border-blue-300 rounded px-2 py-0.5 text-sm shadow-[1px_1px_0px_#93c5fd] shrink-0">
+                            <span class="truncate max-w-[200px]">${escapeHTML(rec)}</span>
+                            <button type="button" onclick="app.removeRecipient(${index})" class="ml-1 text-blue-500 hover:text-red-500 font-bold focus:outline-none"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        </div>
+                    `;
+                });
+                lucide.createIcons();
+            },
+            
+            addRecipientFromInput: function() {
+                const input = document.getElementById('composeToInput');
+                if (!input) return;
+                if (input.value.trim() !== '') {
+                    this.addRecipient(input.value);
+                    input.value = '';
+                }
+            },
+
             openContactSelector: function() {
                 document.getElementById('contactSelectorModal').classList.remove('hidden');
                 this.renderContactSelector();
@@ -1085,7 +1140,6 @@
                 }
 
                 filtered.forEach(c => {
-                    // 【修復2】在選取器內把名稱與 email 綁定到 data 屬性上，方便後續組裝
                     listEl.innerHTML += `
                         <label class="flex items-center p-2 hover:bg-green-100 cursor-pointer border-b border-gray-200 transition">
                             <input type="checkbox" class="anime-checkbox cs-checkbox mr-3" data-name="${escapeHTML(c.name)}" data-email="${escapeHTML(c.email)}">
@@ -1099,7 +1153,6 @@
             },
             confirmContactSelection: function() {
                 const checkboxes = document.querySelectorAll('.cs-checkbox:checked');
-                // 【修復2】將勾選的資料組合為 "Name <email>" 格式
                 const selectedEmails = Array.from(checkboxes).map(cb => {
                     const name = cb.getAttribute('data-name');
                     const email = cb.getAttribute('data-email');
@@ -1107,35 +1160,9 @@
                 });
                 
                 if (selectedEmails.length > 0) {
-                    const toInput = document.getElementById('composeTo');
-                    const currentVal = toInput.value.trim();
-                    const sep = (currentVal && !currentVal.endsWith(',')) ? ', ' : '';
-                    toInput.value = currentVal + sep + selectedEmails.join(', ');
+                    this.addRecipient(selectedEmails.join(', '));
                 }
                 this.closeContactSelector();
-            },
-            
-            // 【修復3】手動輸入 Email 時，自動補齊通訊錄名稱
-            autoCompleteContact: function() {
-                const toInput = document.getElementById('composeTo');
-                if (!toInput) return;
-                let val = toInput.value.trim();
-                if (!val) return;
-
-                const parts = val.split(',').map(p => p.trim()).filter(p => p !== '');
-                const newParts = parts.map(part => {
-                    // 如果已經是 Name <email> 格式就不處理
-                    if (part.includes('<') && part.includes('>')) return part;
-                    
-                    // 從通訊錄尋找對應的 email
-                    const contact = state.contacts.find(c => c.email.toLowerCase() === part.toLowerCase());
-                    if (contact) {
-                        return `${contact.name} <${contact.email}>`;
-                    }
-                    return part;
-                });
-
-                toInput.value = newParts.join(', ');
             },
 
             renderWmAccountSelect: function() {
@@ -1468,9 +1495,10 @@
                         const li = document.createElement('li');
                         li.className = `p-4 cursor-pointer flex items-center transition border-b border-gray-200 border-l-[6px] ${borderLeftClass} ${bgClass}`;
                         
-                        let dateStr = '--/--';
+                        // 【修改1】加入西元年顯示
+                        let dateStr = '--/--/--';
                         if (email.timestamp && !isNaN(email.timestamp)) {
-                            dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
+                            dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
                         }
                         
                         const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black text-lg';
@@ -1862,40 +1890,100 @@
                 lucide.createIcons();
             },
 
-            // 【修復】回信與編輯草稿載入邏輯更新
-            openCompose: function(isReply = false) {
+            // === 撰寫郵件：收件者標籤管理 ===
+            addRecipient: function(emailStr) {
+                if (!emailStr || !emailStr.trim()) return;
+                
+                const parts = emailStr.split(',').map(p => p.trim()).filter(p => p !== '');
+                
+                parts.forEach(part => {
+                    let formatted = part;
+                    if (!part.includes('<') || !part.includes('>')) {
+                        const contact = state.contacts.find(c => c.email.toLowerCase() === part.toLowerCase());
+                        if (contact) {
+                            formatted = `${contact.name} <${contact.email}>`;
+                        }
+                    }
+                    if (!state.composeRecipients.includes(formatted)) {
+                        state.composeRecipients.push(formatted);
+                    }
+                });
+                this.renderRecipients();
+            },
+            
+            removeRecipient: function(index) {
+                state.composeRecipients.splice(index, 1);
+                this.renderRecipients();
+            },
+            
+            renderRecipients: function() {
+                const container = document.getElementById('composeToTags');
+                if (!container) return;
+                container.innerHTML = '';
+                state.composeRecipients.forEach((rec, index) => {
+                    container.innerHTML += `
+                        <div class="flex items-center bg-blue-100 text-blue-800 border border-blue-300 rounded px-2 py-0.5 text-sm shadow-[1px_1px_0px_#93c5fd] shrink-0">
+                            <span class="truncate max-w-[200px]">${escapeHTML(rec)}</span>
+                            <button type="button" onclick="app.removeRecipient(${index})" class="ml-1 text-blue-500 hover:text-red-500 font-bold focus:outline-none"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        </div>
+                    `;
+                });
+                lucide.createIcons();
+            },
+            
+            addRecipientFromInput: function() {
+                const input = document.getElementById('composeToInput');
+                if (!input) return;
+                if (input.value.trim() !== '') {
+                    this.addRecipient(input.value);
+                    input.value = '';
+                }
+            },
+
+            // 【修改2】嚴格拆分三種撰寫模式
+            openCompose: function(mode = 'new') {
                 if (!state.selectedAccountId) { showToast("請先選擇帳號"); return; }
                 const acc = state.accounts.find(a => a.id === state.selectedAccountId);
                 document.getElementById('composeTitle').textContent = `使用 ${acc.email} 撰寫`;
                 
+                // 1. 完全清空所有欄位
                 document.getElementById('composeDraftId').value = '';
                 document.getElementById('composeReplyToId').value = ''; 
-                document.getElementById('composeTo').value = '';
+                document.getElementById('composeToInput').value = '';
                 document.getElementById('composeSubject').value = '';
                 document.getElementById('composeBody').value = '';
                 
+                state.composeRecipients = [];
+                this.renderRecipients();
+
                 state.composeAttachments = [];
                 this.renderComposeAttachments();
 
-                if (isReply && state.viewingEmail) {
+                // 2. 若為回信模式
+                if (mode === 'reply' && state.viewingEmail) {
                     if (state.currentFolder === 'inbox') {
                         document.getElementById('composeReplyToId').value = state.viewingEmail.id;
                     }
                     const sName = state.viewingEmail.senderName;
                     const sEmail = state.viewingEmail.sender || state.viewingEmail.recipient;
                     
-                    // 根據是否有名字，自動組合成 Name <email> 格式
-                    if (sName && sName !== sEmail) {
-                        document.getElementById('composeTo').value = `${sName} <${sEmail}>`;
-                    } else {
-                        document.getElementById('composeTo').value = sEmail || '';
-                    }
+                    let replyToStr = '';
+                    if (sName && sName !== sEmail) replyToStr = `${sName} <${sEmail}>`;
+                    else replyToStr = sEmail || '';
+                    
+                    this.addRecipient(replyToStr);
 
                     document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
                     document.getElementById('composeBody').value = `\n\n--- 原始郵件 ---\n${state.viewingEmail.body}`;
-                } else if (state.currentFolder === 'drafts' && state.viewingEmail) {
+                } 
+                // 3. 若為編輯草稿模式
+                else if (mode === 'edit' && state.viewingEmail) {
                     document.getElementById('composeDraftId').value = state.viewingEmail.id;
-                    document.getElementById('composeTo').value = state.viewingEmail.recipient || '';
+                    
+                    if (state.viewingEmail.recipient) {
+                        this.addRecipient(state.viewingEmail.recipient);
+                    }
+                    
                     document.getElementById('composeSubject').value = state.viewingEmail.subject;
                     document.getElementById('composeBody').value = state.viewingEmail.body;
                     
@@ -1904,6 +1992,7 @@
                         this.renderComposeAttachments();
                     }
                 }
+
                 document.getElementById('composeModal').classList.remove('hidden');
             },
             closeCompose: function() { document.getElementById('composeModal').classList.add('hidden'); },
@@ -1913,6 +2002,9 @@
                 const draftId = document.getElementById('composeDraftId').value;
                 const bodyText = document.getElementById('composeBody').value;
                 
+                this.addRecipientFromInput();
+                const to = state.composeRecipients.join(', ');
+
                 let totalAttachmentSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
                 if (totalAttachmentSize > 800 * 1024) {
                     showToast("⚠️ 草稿暫存限制：草稿夾的附件總和不得超過 800KB，請直接寄出或減少附件。");
@@ -1923,7 +2015,7 @@
                     accountId: acc.id,
                     folder: 'drafts',
                     sender: acc.email,
-                    recipient: document.getElementById('composeTo').value,
+                    recipient: to,
                     subject: document.getElementById('composeSubject').value || '(無主旨)',
                     body: bodyText,
                     html: bodyText.replace(/\n/g, '<br>'), 
@@ -1936,7 +2028,6 @@
                 try {
                     if (draftId) {
                         await updateDoc(getDoc('local_emails', draftId), data);
-                        // 【修復】更新草稿時，即時更新 state 以反映在畫面上
                         if (state.viewingEmail && state.viewingEmail.id === draftId) {
                             state.viewingEmail = { id: draftId, ...data };
                         }
@@ -1951,7 +2042,8 @@
 
             sendEmail: async function() {
                 const acc = state.accounts.find(a => a.id === state.selectedAccountId);
-                const to = document.getElementById('composeTo').value.trim();
+                this.addRecipientFromInput();
+                const to = state.composeRecipients.join(', ');
                 const subject = document.getElementById('composeSubject').value;
                 const bodyText = document.getElementById('composeBody').value;
                 const replyToId = document.getElementById('composeReplyToId').value;
