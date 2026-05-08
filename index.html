@@ -163,7 +163,6 @@
                     <form id="accountForm" onsubmit="event.preventDefault(); app.saveAccount();" class="space-y-4">
                         <input type="hidden" id="accId">
                         
-                        <!-- 【新增】快速帶入供應商與提示 -->
                         <div class="grid grid-cols-2 gap-4">
                             <div class="col-span-2 bg-yellow-100 p-3 rounded-lg border-2 border-gray-800 text-sm font-bold flex items-start">
                                 <i data-lucide="alert-circle" class="w-5 h-5 mr-2 text-yellow-600 shrink-0"></i>
@@ -478,7 +477,7 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
-        // 封裝公共資料節點
+        // 封裝公共資料節點 (跨瀏覽器/裝置共享，從最上層建立資料)
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -492,7 +491,19 @@
             currentFolder: 'inbox',
             viewingEmail: null,
             selectedEmailIds: new Set(), 
-            lastImapIds: new Set() 
+            lastImapIds: new Set(),
+            isSyncing: false
+        };
+
+        // 安全過濾 HTML 函式，防止信件破版
+        const escapeHTML = (str) => {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         };
 
         try {
@@ -507,6 +518,7 @@
         window.app = {
             init: async function() {
                 try {
+                    // 強制執行匿名登入，免密碼直接取用公共資料
                     await signInAnonymously(auth);
 
                     onAuthStateChanged(auth, (currentUser) => {
@@ -577,7 +589,6 @@
                 lucide.createIcons();
             },
 
-            // === 快速帶入常用信箱設定 ===
             fillProviderSettings: function() {
                 const provider = document.getElementById('quickProvider').value;
                 const imapEl = document.getElementById('accImap');
@@ -676,8 +687,8 @@
                     area.innerHTML += `
                         <div class="anime-card p-4 flex justify-between items-center bg-white">
                             <div>
-                                <h4 class="text-xl font-bold">${acc.name} <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded ml-2">每 ${acc.checkInterval||60} 秒同步</span></h4>
-                                <p class="text-gray-600">${acc.email}</p>
+                                <h4 class="text-xl font-bold">${escapeHTML(acc.name)} <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded ml-2">每 ${acc.checkInterval||60} 秒同步</span></h4>
+                                <p class="text-gray-600">${escapeHTML(acc.email)}</p>
                             </div>
                             <div class="flex space-x-2">
                                 <button onclick="app.toggleSettingsForm(true, '${acc.id}')" class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg border-2 border-gray-800 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
@@ -743,9 +754,9 @@
                 filtered.forEach(c => {
                     tbody.innerHTML += `
                         <tr class="hover:bg-green-50 transition">
-                            <td class="p-3 font-bold text-gray-800">${c.name}</td>
-                            <td class="p-3 text-gray-600">${c.email}</td>
-                            <td class="p-3 text-sm text-gray-500">${c.note || '-'}</td>
+                            <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
+                            <td class="p-3 text-gray-600">${escapeHTML(c.email)}</td>
+                            <td class="p-3 text-sm text-gray-500">${escapeHTML(c.note || '-')}</td>
                             <td class="p-3 text-center space-x-2">
                                 <button onclick="app.openContactModal('${c.id}')" class="text-blue-600 hover:text-blue-800"><i data-lucide="edit" class="w-4 h-4"></i></button>
                                 <button onclick="app.deleteContact('${c.id}')" class="text-red-600 hover:text-red-800"><i data-lucide="trash" class="w-4 h-4"></i></button>
@@ -761,7 +772,7 @@
                 if(!sel) return;
                 sel.innerHTML = '<option value="">📖 選取通訊錄</option>';
                 state.contacts.forEach(c => {
-                    sel.innerHTML += `<option value="${c.email}">${c.name} (${c.email})</option>`;
+                    sel.innerHTML += `<option value="${escapeHTML(c.email)}">${escapeHTML(c.name)} (${escapeHTML(c.email)})</option>`;
                 });
             },
 
@@ -770,7 +781,7 @@
                 if(!sel) return;
                 sel.innerHTML = state.accounts.length ? '' : '<option value="">請先新增帳號</option>';
                 state.accounts.forEach(a => {
-                    sel.innerHTML += `<option value="${a.id}" ${a.id===state.selectedAccountId?'selected':''}>${a.name}</option>`;
+                    sel.innerHTML += `<option value="${a.id}" ${a.id===state.selectedAccountId?'selected':''}>${escapeHTML(a.name)}</option>`;
                 });
             },
 
@@ -873,8 +884,15 @@
 
             fetchRealEmails: async function(showLoadingUI = true) {
                 if (!state.selectedAccountId) return;
+                
+                if (state.isSyncing) return; 
+                state.isSyncing = true;
+
                 const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
-                if (!activeAcc) return;
+                if (!activeAcc) {
+                    state.isSyncing = false;
+                    return;
+                }
                 
                 const listEl = document.getElementById('wm-email-list');
 
@@ -918,9 +936,11 @@
                     
                 } catch (e) {
                     if (showLoadingUI && listEl) {
-                        listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>連線失敗，可能是 Yahoo 阻擋或設定錯誤。</li>`;
+                        listEl.innerHTML = `<li class="p-8 text-center text-red-500 font-bold bg-red-50"><i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>連線失敗，可能是設定錯誤或被阻擋。</li>`;
                         lucide.createIcons();
                     }
+                } finally {
+                    state.isSyncing = false;
                 }
             },
 
@@ -957,7 +977,6 @@
                 
                 let emails = this.getCurrentEmails();
                 
-                // 排序功能
                 const sortType = document.getElementById('wm-sort-select')?.value || 'date-desc';
                 emails.sort((a, b) => {
                     if (sortType === 'date-desc') return b.timestamp - a.timestamp;
@@ -970,9 +989,11 @@
                     return 0;
                 });
                 
+                emails = emails.slice(0, 50);
+
                 const unreadCount = emails.filter(e => !e.read).length;
                 const totEl = document.getElementById('wm-total-count');
-                if(totEl) totEl.textContent = emails.length;
+                if(totEl) totEl.textContent = this.getCurrentEmails().length; 
                 const unreadEl = document.getElementById('wm-unread-count');
                 if(unreadEl) unreadEl.textContent = unreadCount;
                 
@@ -988,7 +1009,7 @@
                     if(emptyState) emptyState.classList.add('hidden');
                     
                     const selectAllCb = document.getElementById('selectAllCb');
-                    if (selectAllCb) selectAllCb.checked = (state.selectedEmailIds.size === emails.length);
+                    if (selectAllCb) selectAllCb.checked = (state.selectedEmailIds.size > 0 && state.selectedEmailIds.size === this.getCurrentEmails().length);
 
                     emails.forEach(email => {
                         const strId = String(email.id);
@@ -1010,9 +1031,12 @@
                         } 
                         
                         const li = document.createElement('li');
-                        li.className = `p-4 cursor-pointer flex items-center transition border-b border-gray-200 border-l-4 ${borderLeftClass} ${bgClass}`;
+                        li.className = `p-4 cursor-pointer flex items-center transition border-b border-gray-200 border-l-[6px] ${borderLeftClass} ${bgClass}`;
                         
-                        const dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
+                        let dateStr = '--/--';
+                        if (email.timestamp && !isNaN(email.timestamp)) {
+                            dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
+                        }
                         
                         const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black text-lg';
                         const subjectClass = email.read ? 'text-gray-500 font-normal' : 'text-gray-900 font-bold';
@@ -1020,6 +1044,10 @@
                         const unreadBadge = email.read ? '' : `<span class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded border border-red-800 mr-2 shadow-[2px_2px_0px_#7f1d1d] shrink-0 animate-pulse inline-block align-middle">🔴 未讀</span>`;
                         const repliedBadge = email.replied ? `<span class="text-[10px] text-blue-600 font-bold border border-blue-600 px-1 rounded mr-2 inline-block align-middle bg-blue-50">已回信</span>` : '';
                         
+                        const safeSender = escapeHTML(email.senderName || email.recipient || '(無收件人)');
+                        const safeSubject = escapeHTML(email.subject || '(無主旨)');
+                        const safeSnippet = escapeHTML(email.bodySnippet || '...');
+
                         li.innerHTML = `
                             <div class="mr-4" onclick="event.stopPropagation()">
                                 <input type="checkbox" class="anime-checkbox" value="${strId}" ${isSelected ? 'checked' : ''} onclick="app.toggleEmailSelect(this, '${strId}')">
@@ -1029,12 +1057,12 @@
                                     <div class="truncate pr-2 ${senderClass} flex items-center">
                                         ${unreadBadge}
                                         ${repliedBadge}
-                                        <span class="truncate">${email.senderName || email.recipient || '(無收件人)'}</span>
+                                        <span class="truncate">${safeSender}</span>
                                     </div>
                                     <p class="text-xs font-bold ${email.read ? 'text-gray-400' : 'text-orange-600'} flex-shrink-0">${dateStr}</p>
                                 </div>
-                                <p class="truncate ${subjectClass} mb-1">${email.subject || '(無主旨)'}</p>
-                                <p class="text-xs ${email.read ? 'text-gray-400' : 'text-gray-600'} truncate mt-1">${email.bodySnippet || '...'}</p>
+                                <p class="truncate ${subjectClass} mb-1">${safeSubject}</p>
+                                <p class="text-xs ${email.read ? 'text-gray-400' : 'text-gray-600'} truncate mt-1">${safeSnippet}</p>
                             </div>
                         `;
                         listEl.appendChild(li);
@@ -1067,12 +1095,19 @@
                 document.getElementById('wm-preview-empty').classList.add('hidden');
                 document.getElementById('wm-preview-content').classList.remove('hidden');
 
+                const safeSenderName = escapeHTML(email.senderName || (email.sender?email.sender.split('@')[0]:'Draft'));
+                
                 document.getElementById('pv-subject').textContent = email.subject || '(無主旨)';
-                const sName = email.senderName || (email.sender?email.sender.split('@')[0]:'Draft');
-                document.getElementById('pv-sender-name').textContent = sName;
-                document.getElementById('pv-sender-email').textContent = `<${email.sender || email.recipient}>`;
-                document.getElementById('pv-date').textContent = new Date(email.timestamp).toLocaleString('zh-TW');
-                document.getElementById('pv-avatar').textContent = sName.charAt(0).toUpperCase();
+                document.getElementById('pv-sender-name').textContent = safeSenderName;
+                document.getElementById('pv-sender-email').textContent = `<${escapeHTML(email.sender || email.recipient)}>`;
+                
+                if (email.timestamp && !isNaN(email.timestamp)) {
+                    document.getElementById('pv-date').textContent = new Date(email.timestamp).toLocaleString('zh-TW');
+                } else {
+                    document.getElementById('pv-date').textContent = '';
+                }
+
+                document.getElementById('pv-avatar').textContent = safeSenderName.charAt(0).toUpperCase();
                 
                 const pvBody = document.getElementById('pv-body');
                 
@@ -1082,7 +1117,7 @@
                     pvBody.classList.remove('p-8');
                     pvBody.classList.add('p-2');
                 } else {
-                    const safeBody = (email.body||'').replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+                    const safeBody = escapeHTML(email.body||'').replace(/\n/g, "<br>");
                     pvBody.innerHTML = `<div class="w-full h-full overflow-y-auto bg-white p-6 rounded-xl">${safeBody}</div>`;
                     pvBody.classList.remove('p-2');
                     pvBody.classList.add('p-8');
