@@ -135,14 +135,14 @@
                         <i data-lucide="book-user" class="w-12 h-12 text-green-700"></i>
                     </div>
                     <h3 class="text-2xl font-bold mb-2">寄件人通訊錄</h3>
-                    <p class="text-gray-600">管理聯絡人名稱、Email 以及單位與群組設定。</p>
+                    <p class="text-gray-600">管理聯絡人名稱、Email 以及多重群組分類設定。</p>
                 </div>
                 <div onclick="app.navigate('webmail')" class="anime-card bg-blue-50 p-8 flex flex-col items-center cursor-pointer hover:bg-blue-100 text-center">
                     <div class="w-24 h-24 bg-blue-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
                         <i data-lucide="send" class="w-12 h-12 text-blue-700"></i>
                     </div>
                     <h3 class="text-2xl font-bold mb-2">Webmail 作業</h3>
-                    <p class="text-gray-600">收發信件、同步刪除、草稿管理與分割畫面瀏覽。</p>
+                    <p class="text-gray-600">收發信件、附加檔案、同步刪除、與草稿管理。</p>
                 </div>
             </div>
         </div>
@@ -240,6 +240,10 @@
                             <option value="">🏷️ 所有群組</option>
                         </select>
                         <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
+                        
+                        <button onclick="app.openGroupManagerModal()" class="anime-btn bg-blue-300 px-4 py-1.5 flex items-center shrink-0">
+                            <i data-lucide="layers" class="w-5 h-5 mr-1"></i> 群組管理
+                        </button>
                         <button onclick="app.openContactModal()" class="anime-btn bg-green-300 px-4 py-1.5 flex items-center shrink-0">
                             <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增
                         </button>
@@ -323,7 +327,7 @@
                         <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <!-- 排序功能列 -->
+                <!-- 排序與分頁功能列 -->
                 <div class="px-3 py-2 bg-blue-50 border-b-2 border-gray-800 text-sm font-bold flex flex-col gap-2 shrink-0">
                     <div class="flex justify-between items-center w-full">
                         <span id="wm-folder-title">收件匣</span>
@@ -345,7 +349,6 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto bg-white relative">
-                    <!-- 移除 divide-y 避免干擾左側邊框渲染 -->
                     <ul id="wm-email-list" class="w-full"></ul>
                     <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                         <i data-lucide="inbox" class="w-12 h-12 mb-2"></i>
@@ -406,8 +409,25 @@
 
     </main>
 
-    <!-- Modal: 新增聯絡人 -->
-    <div id="contactModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <!-- Modal: 群組獨立管理 -->
+    <div id="groupManagerModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white p-6 w-full max-w-md">
+            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2 flex justify-between items-center">
+                <span>群組管理中心</span>
+                <button onclick="app.closeGroupManagerModal()" class="text-gray-500 hover:text-red-500"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </h3>
+            <div class="flex space-x-2 mb-4">
+                <input type="text" id="newGroupName" class="anime-input flex-1" placeholder="輸入新群組名稱...">
+                <button onclick="app.saveGroup()" class="anime-btn bg-green-300 px-4 py-2 shrink-0">新增</button>
+            </div>
+            <ul id="groupManagerList" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                <!-- 動態載入群組 -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Modal: 新增/編輯聯絡人 -->
+    <div id="contactModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
         <div class="anime-card bg-white p-6 w-full max-w-xl">
             <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2" id="contactModalTitle">新增聯絡人</h3>
             <form onsubmit="event.preventDefault(); app.saveContact();" class="space-y-4">
@@ -421,15 +441,16 @@
                         <label class="block font-bold mb-1">Email</label>
                         <input type="email" id="ctEmail" required class="anime-input w-full">
                     </div>
-                    <div>
-                        <label class="block font-bold mb-1">單位</label>
+                    <div class="md:col-span-2">
+                        <label class="block font-bold mb-1">單位 (公司/部門)</label>
                         <input type="text" id="ctCompany" list="companyList" class="anime-input w-full" placeholder="輸入或選取現有單位">
                         <datalist id="companyList"></datalist>
                     </div>
-                    <div>
-                        <label class="block font-bold mb-1">群組設定</label>
-                        <input type="text" id="ctGroup" list="groupList" class="anime-input w-full" placeholder="輸入或選取現有群組">
-                        <datalist id="groupList"></datalist>
+                    <div class="md:col-span-2">
+                        <label class="block font-bold mb-1">加入群組 (可複選)</label>
+                        <div id="ctGroupCheckboxes" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto border-2 border-gray-300 p-3 rounded-lg bg-gray-50">
+                            <!-- JS 生成核取方塊 -->
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -444,10 +465,40 @@
         </div>
     </div>
 
+    <!-- Modal: 收件者通訊錄選取器 (撰寫郵件時使用) -->
+    <div id="contactSelectorModal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white p-6 w-full max-w-2xl flex flex-col h-[70vh]">
+            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2 flex justify-between items-center shrink-0">
+                <span>選擇收件人</span>
+                <button onclick="app.closeContactSelector()" class="text-gray-500 hover:text-red-500"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </h3>
+            
+            <div class="flex flex-col md:flex-row gap-2 mb-4 shrink-0">
+                <select id="csFilterCompany" onchange="app.renderContactSelector()" class="anime-input flex-1 text-sm py-1.5 px-2">
+                    <option value="">📁 所有單位</option>
+                </select>
+                <select id="csFilterGroup" onchange="app.renderContactSelector()" class="anime-input flex-1 text-sm py-1.5 px-2">
+                    <option value="">🏷️ 所有群組</option>
+                </select>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto border-2 border-gray-300 rounded-lg p-2 bg-gray-50 mb-4">
+                <ul id="csContactList" class="space-y-1">
+                    <!-- JS 生成可勾選之聯絡人 -->
+                </ul>
+            </div>
+            
+            <div class="flex justify-end space-x-3 shrink-0 border-t border-gray-200 pt-4">
+                <button type="button" onclick="app.closeContactSelector()" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
+                <button type="button" onclick="app.confirmContactSelection()" class="anime-btn bg-blue-500 text-white px-6 py-2">確定加入</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: 撰寫/編輯草稿郵件 -->
     <div id="composeModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-        <div class="anime-card bg-white w-full max-w-3xl flex flex-col h-[85vh]">
-             <div class="px-6 py-4 border-b-2 border-gray-800 flex justify-between items-center bg-blue-50 rounded-t-xl">
+        <div class="anime-card bg-white w-full max-w-4xl flex flex-col h-[90vh]">
+             <div class="px-6 py-4 border-b-2 border-gray-800 flex justify-between items-center bg-blue-50 rounded-t-xl shrink-0">
                 <h3 class="text-2xl font-bold text-gray-800" id="composeTitle">撰寫新郵件</h3>
                 <button onclick="app.closeCompose()" class="text-gray-500 hover:text-red-500 transition">
                     <i data-lucide="x" class="w-6 h-6 border-2 border-transparent hover:border-red-500 rounded-full"></i>
@@ -459,10 +510,10 @@
                 
                 <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                     <span class="font-bold w-20 shrink-0">收件者</span>
-                    <input type="text" id="composeTo" class="anime-input flex-1" placeholder="填寫 email 或從右方通訊錄選取 ➔">
-                    <select id="composeContactSelect" onchange="if(this.value) { document.getElementById('composeTo').value = this.value; this.value=''; }" class="anime-input sm:w-48 cursor-pointer bg-green-50 shrink-0">
-                        <option value="">📖 選取通訊錄</option>
-                    </select>
+                    <input type="text" id="composeTo" class="anime-input flex-1" placeholder="填寫 email 或從右方開啟通訊錄選取 ➔">
+                    <button type="button" onclick="app.openContactSelector()" class="anime-btn bg-green-200 hover:bg-green-300 px-4 py-2 flex items-center shrink-0">
+                        <i data-lucide="book-open" class="w-4 h-4 mr-1"></i> 📖 開啟通訊錄
+                    </button>
                 </div>
                 
                 <div class="flex items-center">
@@ -470,8 +521,22 @@
                     <input type="text" id="composeSubject" class="anime-input flex-1" placeholder="請輸入主旨">
                 </div>
                 <textarea id="composeBody" class="anime-input flex-1 w-full resize-none p-4 text-lg" placeholder="撰寫您的郵件內容..."></textarea>
+                
+                <div class="border-2 border-dashed border-gray-400 p-4 rounded-xl bg-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-bold text-gray-700 flex items-center"><i data-lucide="paperclip" class="w-4 h-4 mr-1"></i> 郵件附件</span>
+                        <button type="button" onclick="document.getElementById('composeFileInput').click()" class="anime-btn bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200">
+                            + 選取檔案
+                        </button>
+                        <input type="file" id="composeFileInput" multiple class="hidden" onchange="app.handleAttachmentSelect(event)">
+                    </div>
+                    <div id="composeAttachmentsList" class="flex flex-wrap gap-2">
+                        <!-- JS 動態生成已選取附件 -->
+                    </div>
+                </div>
             </div>
-            <div class="px-6 py-4 border-t-2 border-gray-800 bg-white flex justify-between items-center rounded-b-xl">
+            
+            <div class="px-6 py-4 border-t-2 border-gray-800 bg-white flex justify-between items-center rounded-b-xl shrink-0">
                 <div>
                     <button onclick="app.saveDraft()" class="anime-btn bg-yellow-300 px-6 py-2 mr-2 flex items-center">
                         <i data-lucide="save" class="w-4 h-4 mr-2"></i> 存入草稿
@@ -488,7 +553,7 @@
     </div>
 
     <!-- 右下角通知 Toast -->
-    <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-6 py-3 rounded-xl border-2 border-gray-800 shadow-[4px_4px_0px_rgba(0,0,0,0.3)] transform transition-transform duration-300 translate-y-24 opacity-0 z-[60] font-bold flex items-center">
+    <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-6 py-3 rounded-xl border-2 border-gray-800 shadow-[4px_4px_0px_rgba(0,0,0,0.3)] transform transition-transform duration-300 translate-y-24 opacity-0 z-[70] font-bold flex items-center">
         <i data-lucide="info" class="w-5 h-5 mr-2 text-yellow-400"></i>
         <span id="toastMsg">Message</span>
     </div>
@@ -516,7 +581,6 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
-        // 封裝公共資料節點
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -524,6 +588,7 @@
             currentView: 'home', 
             accounts: [],
             contacts: [],
+            groups: [], 
             localEmails: [], 
             imapEmails: [],  
             selectedAccountId: null,
@@ -532,7 +597,8 @@
             selectedEmailIds: new Set(), 
             lastImapIds: new Set(),
             isSyncing: false,
-            totalInboxCount: 0
+            totalInboxCount: 0,
+            composeAttachments: [] 
         };
 
         const escapeHTML = (str) => {
@@ -585,6 +651,12 @@
             setupListeners: function() {
                 if (!user) return;
 
+                onSnapshot(getCol('groups'), (snap) => {
+                    state.groups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.updateContactFilters();
+                    this.renderGroupList();
+                });
+
                 onSnapshot(getCol('accounts'), (snap) => {
                     state.accounts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderSettingsList();
@@ -600,7 +672,6 @@
                     state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.updateContactFilters();
                     this.renderContacts();
-                    this.renderContactDropdown(); 
                 });
 
                 onSnapshot(getCol('local_emails'), (snap) => {
@@ -738,62 +809,86 @@
                 });
             },
 
-            // --- 通訊錄更新 ---
+            openGroupManagerModal: function() {
+                document.getElementById('groupManagerModal').classList.remove('hidden');
+                this.renderGroupList();
+            },
+            closeGroupManagerModal: function() {
+                document.getElementById('groupManagerModal').classList.add('hidden');
+            },
+            saveGroup: async function() {
+                const name = document.getElementById('newGroupName').value.trim();
+                if (!name) return;
+                try {
+                    await addDoc(getCol('groups'), { name, createdAt: Date.now() });
+                    document.getElementById('newGroupName').value = '';
+                    showToast("群組新增成功");
+                } catch(e) { showToast("群組新增失敗"); }
+            },
+            deleteGroup: async function(id) {
+                if (!confirm("確定要刪除此群組？這不會刪除群組內的聯絡人。")) return;
+                try {
+                    await deleteDoc(getDoc('groups', id));
+                    showToast("群組已刪除");
+                } catch(e) { showToast("刪除失敗"); }
+            },
+            renderGroupList: function() {
+                const list = document.getElementById('groupManagerList');
+                if(!list) return;
+                list.innerHTML = state.groups.length === 0 ? '<li class="text-gray-500 text-sm py-2">目前沒有任何群組</li>' : '';
+                state.groups.forEach(g => {
+                    list.innerHTML += `
+                        <li class="flex justify-between items-center p-2 border-b border-gray-200">
+                            <span class="font-bold text-gray-800">${escapeHTML(g.name)}</span>
+                            <button onclick="app.deleteGroup('${g.id}')" class="text-red-500 hover:bg-red-100 p-1 rounded"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                        </li>
+                    `;
+                });
+                lucide.createIcons();
+            },
+
             updateContactFilters: function() {
                 const compSelect = document.getElementById('filterCompany');
                 const grpSelect = document.getElementById('filterGroup');
                 const compList = document.getElementById('companyList');
-                const grpList = document.getElementById('groupList');
                 
-                if(!compSelect || !grpSelect) return;
-
-                const currentComp = compSelect.value;
-                const currentGrp = grpSelect.value;
-
+                const csCompSelect = document.getElementById('csFilterCompany');
+                const csGrpSelect = document.getElementById('csFilterGroup');
+                
                 const companies = new Set();
-                const groups = new Set();
-
                 state.contacts.forEach(c => {
                     if(c.company && c.company.trim() !== '') companies.add(c.company.trim());
-                    if(c.group && c.group.trim() !== '') groups.add(c.group.trim());
                 });
 
-                compSelect.innerHTML = '<option value="">📁 所有單位</option>';
-                companies.forEach(company => {
-                    compSelect.innerHTML += `<option value="${escapeHTML(company)}">${escapeHTML(company)}</option>`;
-                });
-                if(companies.has(currentComp)) compSelect.value = currentComp;
+                const updateComp = (el, val) => {
+                    if(!el) return;
+                    el.innerHTML = '<option value="">📁 所有單位</option>';
+                    companies.forEach(company => { el.innerHTML += `<option value="${escapeHTML(company)}">${escapeHTML(company)}</option>`; });
+                    if(companies.has(val)) el.value = val;
+                };
+                updateComp(compSelect, compSelect?.value);
+                updateComp(csCompSelect, csCompSelect?.value);
 
-                grpSelect.innerHTML = '<option value="">🏷️ 所有群組</option>';
-                groups.forEach(group => {
-                    grpSelect.innerHTML += `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`;
-                });
-                if(groups.has(currentGrp)) grpSelect.value = currentGrp;
+                const updateGrp = (el, val) => {
+                    if(!el) return;
+                    el.innerHTML = '<option value="">🏷️ 所有群組</option>';
+                    state.groups.forEach(g => { el.innerHTML += `<option value="${g.id}">${escapeHTML(g.name)}</option>`; });
+                    if(state.groups.find(x => x.id === val)) el.value = val;
+                };
+                updateGrp(grpSelect, grpSelect?.value);
+                updateGrp(csGrpSelect, csGrpSelect?.value);
 
                 if(compList) {
                     compList.innerHTML = '';
-                    companies.forEach(company => {
-                        compList.innerHTML += `<option value="${escapeHTML(company)}">`;
-                    });
-                }
-                if(grpList) {
-                    grpList.innerHTML = `
-                        <option value="家人"></option>
-                        <option value="朋友"></option>
-                        <option value="同事"></option>
-                        <option value="客戶"></option>
-                        <option value="廠商"></option>
-                    `;
-                    groups.forEach(group => {
-                        if (!['家人', '朋友', '同事', '客戶', '廠商'].includes(group)) {
-                            grpList.innerHTML += `<option value="${escapeHTML(group)}">`;
-                        }
-                    });
+                    companies.forEach(company => { compList.innerHTML += `<option value="${escapeHTML(company)}">`; });
                 }
             },
 
             openContactModal: function(id = null) {
                 document.getElementById('contactModal').classList.remove('hidden');
+                const groupContainer = document.getElementById('ctGroupCheckboxes');
+                let contactGroups = [];
+
                 if (id) {
                     const c = state.contacts.find(x => x.id === id);
                     document.getElementById('contactModalTitle').textContent = '編輯聯絡人';
@@ -801,27 +896,41 @@
                     document.getElementById('ctName').value = c.name;
                     document.getElementById('ctEmail').value = c.email;
                     document.getElementById('ctCompany').value = c.company || '';
-                    document.getElementById('ctGroup').value = c.group || '';
                     document.getElementById('ctNote').value = c.note || '';
+                    if (c.groups) contactGroups = c.groups;
+                    else if (c.group && typeof c.group === 'string') contactGroups = [c.group]; 
                 } else {
                     document.getElementById('contactModalTitle').textContent = '新增聯絡人';
                     document.getElementById('ctId').value = '';
                     document.getElementById('ctName').value = '';
                     document.getElementById('ctEmail').value = '';
                     document.getElementById('ctCompany').value = '';
-                    document.getElementById('ctGroup').value = '';
                     document.getElementById('ctNote').value = '';
                 }
+
+                groupContainer.innerHTML = state.groups.length === 0 ? '<span class="text-sm text-gray-500">尚無群組，請先至「群組管理」新增</span>' : '';
+                state.groups.forEach(g => {
+                    const isChecked = contactGroups.includes(g.id);
+                    groupContainer.innerHTML += `
+                        <label class="flex items-center space-x-1 cursor-pointer bg-white px-2 py-1 rounded border border-gray-300 hover:border-gray-800">
+                            <input type="checkbox" name="ctGroups" value="${g.id}" class="anime-checkbox !w-4 !h-4" ${isChecked ? 'checked' : ''}>
+                            <span class="text-sm font-bold text-gray-700">${escapeHTML(g.name)}</span>
+                        </label>
+                    `;
+                });
             },
             closeContactModal: function() { document.getElementById('contactModal').classList.add('hidden'); },
             
             saveContact: async function() {
                 const id = document.getElementById('ctId').value;
+                const groupCheckboxes = document.querySelectorAll('input[name="ctGroups"]:checked');
+                const selectedGroups = Array.from(groupCheckboxes).map(cb => cb.value);
+
                 const data = {
                     name: document.getElementById('ctName').value,
                     email: document.getElementById('ctEmail').value,
                     company: document.getElementById('ctCompany').value,
-                    group: document.getElementById('ctGroup').value,
+                    groups: selectedGroups,
                     note: document.getElementById('ctNote').value
                 };
                 try {
@@ -841,7 +950,7 @@
             renderContacts: function() {
                 const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
                 const filterComp = document.getElementById('filterCompany')?.value;
-                const filterGrp = document.getElementById('filterGroup')?.value;
+                const filterGrp = document.getElementById('filterGroup')?.value; 
                 
                 const tbody = document.getElementById('contactsTableBody');
                 if(!tbody) return;
@@ -850,8 +959,12 @@
                 const filtered = state.contacts.filter(c => {
                     const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
                     const matchComp = filterComp ? c.company === filterComp : true;
-                    const matchGrp = filterGrp ? c.group === filterGrp : true;
-                    return matchTerm && matchComp && matchGrp;
+                    let inGroup = true;
+                    if (filterGrp) {
+                        if (c.groups && Array.isArray(c.groups)) inGroup = c.groups.includes(filterGrp);
+                        else inGroup = false; 
+                    }
+                    return matchTerm && matchComp && inGroup;
                 });
                 
                 if (filtered.length === 0) {
@@ -860,14 +973,17 @@
                 }
                 
                 filtered.forEach(c => {
+                    const groupNames = (c.groups || []).map(gid => {
+                        const g = state.groups.find(x => x.id === gid);
+                        return g ? `<span class="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded border border-gray-400 font-bold inline-block m-0.5">${escapeHTML(g.name)}</span>` : '';
+                    }).join('');
+
                     tbody.innerHTML += `
                         <tr class="hover:bg-green-50 transition">
                             <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
                             <td class="p-3 text-gray-600">${escapeHTML(c.email)}</td>
                             <td class="p-3 text-gray-600">${escapeHTML(c.company || '-')}</td>
-                            <td class="p-3 text-gray-600">
-                                ${c.group ? `<span class="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded border border-gray-400 font-bold">${escapeHTML(c.group)}</span>` : '-'}
-                            </td>
+                            <td class="p-3">${groupNames || '-'}</td>
                             <td class="p-3 text-sm text-gray-500">${escapeHTML(c.note || '-')}</td>
                             <td class="p-3 text-center space-x-2">
                                 <button onclick="app.openContactModal('${c.id}')" class="text-blue-600 hover:text-blue-800"><i data-lucide="edit" class="w-4 h-4"></i></button>
@@ -878,17 +994,57 @@
                 });
                 lucide.createIcons();
             },
-            
-            renderContactDropdown: function() {
-                const sel = document.getElementById('composeContactSelect');
-                if(!sel) return;
-                sel.innerHTML = '<option value="">📖 選取通訊錄</option>';
-                state.contacts.forEach(c => {
-                    let label = escapeHTML(c.name);
-                    if (c.company) label += ` [${escapeHTML(c.company)}]`;
-                    label += ` - ${escapeHTML(c.email)}`;
-                    sel.innerHTML += `<option value="${escapeHTML(c.email)}">${label}</option>`;
+
+            openContactSelector: function() {
+                document.getElementById('contactSelectorModal').classList.remove('hidden');
+                this.renderContactSelector();
+            },
+            closeContactSelector: function() {
+                document.getElementById('contactSelectorModal').classList.add('hidden');
+            },
+            renderContactSelector: function() {
+                const compFilter = document.getElementById('csFilterCompany').value;
+                const grpFilter = document.getElementById('csFilterGroup').value;
+                const listEl = document.getElementById('csContactList');
+                listEl.innerHTML = '';
+
+                const filtered = state.contacts.filter(c => {
+                    const matchComp = compFilter ? c.company === compFilter : true;
+                    let matchGrp = true;
+                    if (grpFilter) {
+                        if (c.groups && Array.isArray(c.groups)) matchGrp = c.groups.includes(grpFilter);
+                        else matchGrp = false;
+                    }
+                    return matchComp && matchGrp;
                 });
+
+                if (filtered.length === 0) {
+                    listEl.innerHTML = '<div class="p-4 text-center text-gray-500 font-bold">查無符合條件的聯絡人</div>';
+                    return;
+                }
+
+                filtered.forEach(c => {
+                    listEl.innerHTML += `
+                        <label class="flex items-center p-2 hover:bg-green-100 cursor-pointer border-b border-gray-200 transition">
+                            <input type="checkbox" class="anime-checkbox cs-checkbox mr-3" value="${escapeHTML(c.email)}">
+                            <div class="flex-1">
+                                <p class="font-bold text-gray-800">${escapeHTML(c.name)} <span class="text-sm font-normal text-gray-500 ml-2">&lt;${escapeHTML(c.email)}&gt;</span></p>
+                                <p class="text-xs text-gray-500">${escapeHTML(c.company || '無單位')}</p>
+                            </div>
+                        </label>
+                    `;
+                });
+            },
+            confirmContactSelection: function() {
+                const checkboxes = document.querySelectorAll('.cs-checkbox:checked');
+                const selectedEmails = Array.from(checkboxes).map(cb => cb.value);
+                if (selectedEmails.length > 0) {
+                    const toInput = document.getElementById('composeTo');
+                    const currentVal = toInput.value.trim();
+                    const sep = (currentVal && !currentVal.endsWith(',')) ? ', ' : '';
+                    toInput.value = currentVal + sep + selectedEmails.join(', ');
+                }
+                this.closeContactSelector();
             },
 
             renderWmAccountSelect: function() {
@@ -1293,7 +1449,6 @@
                 document.getElementById('wm-preview-empty').classList.add('hidden');
                 document.getElementById('wm-preview-content').classList.remove('hidden');
 
-                // 根據草稿或信件調整按鈕顯示
                 const btnReply = document.getElementById('pv-btn-reply');
                 const btnEdit = document.getElementById('pv-btn-edit');
                 if (state.currentFolder === 'drafts') {
@@ -1389,40 +1544,23 @@
                     return;
                 }
 
-                const closeScript = '</' + 'script>';
-                const htmlStr = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <title>${subject}</title>
-                        <style>
-                            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; color: #000; }
-                            .print-header { border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
-                            .print-subject { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-                            .print-meta { font-size: 14px; margin-bottom: 5px; color: #333; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="print-header">
-                            <div class="print-subject">${subject}</div>
-                            <div class="print-meta"><strong>寄件者：</strong> ${safeSenderName} &lt;${safeSenderEmail}&gt;</div>
-                            <div class="print-meta"><strong>日期：</strong> ${dateStr}</div>
-                        </div>
-                        <div class="print-content">
-                            ${contentHtml}
-                        </div>
-                        <script>
-                            window.onload = function() { 
-                                setTimeout(function() {
-                                    window.print();
-                                    window.close();
-                                }, 500); 
-                            };
-                        ${closeScript}
-                    </body>
-                    </html>
-                `;
+                const htmlStr = '<!DOCTYPE html>\n<html>\n<head>\n' +
+                                '<meta charset="UTF-8">\n<title>' + subject + '</title>\n' +
+                                '<style>\n' +
+                                'body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; color: #000; }\n' +
+                                '.print-header { border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }\n' +
+                                '.print-subject { font-size: 24px; font-weight: bold; margin-bottom: 10px; }\n' +
+                                '.print-meta { font-size: 14px; margin-bottom: 5px; color: #333; }\n' +
+                                '</style>\n</head>\n<body>\n' +
+                                '<div class="print-header">\n' +
+                                '    <div class="print-subject">' + subject + '</div>\n' +
+                                '    <div class="print-meta"><strong>寄件者：</strong> ' + safeSenderName + ' &lt;' + safeSenderEmail + '&gt;</div>\n' +
+                                '    <div class="print-meta"><strong>日期：</strong> ' + dateStr + '</div>\n' +
+                                '</div>\n' +
+                                '<div class="print-content">\n' + contentHtml + '\n</div>\n' +
+                                '<scr' + 'ipt>\n' +
+                                '    window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 500); };\n' +
+                                '</scr' + 'ipt>\n</body>\n</html>';
                 
                 printWindow.document.open();
                 printWindow.document.write(htmlStr);
@@ -1446,6 +1584,12 @@
                 document.getElementById('ctId').value = '';
                 document.getElementById('ctName').value = state.viewingEmail.senderName || '';
                 document.getElementById('ctEmail').value = state.viewingEmail.sender || state.viewingEmail.recipient || '';
+                
+                const groupContainer = document.getElementById('ctGroupCheckboxes');
+                groupContainer.innerHTML = state.groups.length === 0 ? '<span class="text-sm text-gray-500">尚無群組，請先至「群組管理」新增</span>' : '';
+                state.groups.forEach(g => {
+                    groupContainer.innerHTML += `<label class="flex items-center space-x-1 cursor-pointer bg-white px-2 py-1 rounded border border-gray-300 hover:border-gray-800"><input type="checkbox" name="ctGroups" value="${g.id}" class="anime-checkbox !w-4 !h-4"><span class="text-sm font-bold text-gray-700">${escapeHTML(g.name)}</span></label>`;
+                });
             },
             
             deleteViewingEmail: async function() {
@@ -1573,6 +1717,49 @@
                 showToast("垃圾桶已清空");
             },
 
+            // === 附件處理邏輯 ===
+            handleAttachmentSelect: function(event) {
+                const files = Array.from(event.target.files);
+                files.forEach(file => {
+                    if (file.size > 3 * 1024 * 1024) {
+                        showToast(`⚠️ 檔案 ${file.name} 超過 3MB 限制，無法加入`);
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const base64 = e.target.result.split(',')[1];
+                        state.composeAttachments.push({
+                            filename: file.name,
+                            contentType: file.type,
+                            size: file.size,
+                            content: base64
+                        });
+                        this.renderComposeAttachments();
+                    };
+                    reader.readAsDataURL(file);
+                });
+                document.getElementById('composeFileInput').value = ''; 
+            },
+            removeComposeAttachment: function(index) {
+                state.composeAttachments.splice(index, 1);
+                this.renderComposeAttachments();
+            },
+            renderComposeAttachments: function() {
+                const container = document.getElementById('composeAttachmentsList');
+                container.innerHTML = '';
+                state.composeAttachments.forEach((att, index) => {
+                    container.innerHTML += `
+                        <div class="flex items-center bg-gray-100 border border-gray-400 rounded px-3 py-1 text-sm font-bold shadow-[2px_2px_0px_#9ca3af]">
+                            <i data-lucide="paperclip" class="w-3 h-3 mr-1 text-gray-600"></i>
+                            <span class="truncate max-w-[150px] mr-2">${escapeHTML(att.filename)}</span>
+                            <span class="text-gray-500 text-xs mr-2">(${Math.round(att.size/1024)}KB)</span>
+                            <button type="button" onclick="app.removeComposeAttachment(${index})" class="text-red-500 hover:text-red-700 bg-white rounded-full p-0.5"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        </div>
+                    `;
+                });
+                lucide.createIcons();
+            },
+
             openCompose: function(isReply = false) {
                 if (!state.selectedAccountId) { showToast("請先選擇帳號"); return; }
                 const acc = state.accounts.find(a => a.id === state.selectedAccountId);
@@ -1583,12 +1770,14 @@
                 document.getElementById('composeTo').value = '';
                 document.getElementById('composeSubject').value = '';
                 document.getElementById('composeBody').value = '';
+                
+                state.composeAttachments = [];
+                this.renderComposeAttachments();
 
                 if (isReply && state.viewingEmail) {
                     if (state.currentFolder === 'inbox') {
                         document.getElementById('composeReplyToId').value = state.viewingEmail.id;
                     }
-                    
                     document.getElementById('composeTo').value = state.viewingEmail.sender || state.viewingEmail.recipient;
                     document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
                     document.getElementById('composeBody').value = `\n\n--- 原始郵件 ---\n${state.viewingEmail.body}`;
@@ -1597,6 +1786,11 @@
                     document.getElementById('composeTo').value = state.viewingEmail.recipient;
                     document.getElementById('composeSubject').value = state.viewingEmail.subject;
                     document.getElementById('composeBody').value = state.viewingEmail.body;
+                    
+                    if (state.viewingEmail.attachments && Array.isArray(state.viewingEmail.attachments)) {
+                        state.composeAttachments = [...state.viewingEmail.attachments];
+                        this.renderComposeAttachments();
+                    }
                 }
                 document.getElementById('composeModal').classList.remove('hidden');
             },
@@ -1606,6 +1800,13 @@
                 const acc = state.accounts.find(a => a.id === state.selectedAccountId);
                 const draftId = document.getElementById('composeDraftId').value;
                 const bodyText = document.getElementById('composeBody').value;
+                
+                let totalAttachmentSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
+                if (totalAttachmentSize > 800 * 1024) {
+                    showToast("⚠️ 草稿暫存限制：草稿夾的附件總和不得超過 800KB，請直接寄出或減少附件。");
+                    return;
+                }
+
                 const data = {
                     accountId: acc.id,
                     folder: 'drafts',
@@ -1616,7 +1817,8 @@
                     html: bodyText.replace(/\n/g, '<br>'), 
                     bodySnippet: bodyText.substring(0, 40),
                     timestamp: Date.now(),
-                    read: true
+                    read: true,
+                    attachments: state.composeAttachments
                 };
 
                 try {
@@ -1637,14 +1839,15 @@
                 
                 if (!to) { showToast("請輸入收件者"); return; }
                 
-                showToast("傳送中...");
+                showToast("信件及附件編碼傳送中...");
                 try {
                     const response = await fetch(VERCEL_API_BASE + '/api/send', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             user: acc.email, pass: acc.password, to, subject, 
-                            text: bodyText, html: bodyText.replace(/\n/g, '<br>'), smtpHost: acc.smtp 
+                            text: bodyText, html: bodyText.replace(/\n/g, '<br>'), smtpHost: acc.smtp,
+                            attachments: state.composeAttachments 
                         })
                     });
                     
@@ -1652,16 +1855,18 @@
                     const data = await response.json();
                     if (!data.success) throw new Error(data.error);
 
+                    const slimAttachments = state.composeAttachments.map(a => ({ filename: a.filename, size: a.size }));
+
                     await addDoc(getCol('local_emails'), {
                         accountId: acc.id, folder: 'sent', sender: acc.email, senderName: acc.name, recipient: to, subject, 
                         body: bodyText, html: bodyText.replace(/\n/g, '<br>'),
-                        bodySnippet: bodyText.substring(0, 40), timestamp: Date.now(), read: true
+                        bodySnippet: bodyText.substring(0, 40), timestamp: Date.now(), read: true,
+                        attachments: slimAttachments 
                     });
 
                     if (replyToId) {
                         fetch(VERCEL_API_BASE + '/api/mark-answered', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ user: acc.email, pass: acc.password, imapHost: acc.imap, uid: replyToId })
                         }).catch(e => console.error("標記已回覆失敗", e));
                         
@@ -1676,7 +1881,7 @@
                     showToast("郵件已成功傳送！");
                     this.closeCompose();
                 } catch (e) {
-                    showToast("傳送失敗，請檢查設定。");
+                    showToast("傳送失敗，請檢查設定與網路。");
                 }
             }
         };
