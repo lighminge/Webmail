@@ -135,7 +135,7 @@
                         <i data-lucide="book-user" class="w-12 h-12 text-green-700"></i>
                     </div>
                     <h3 class="text-2xl font-bold mb-2">寄件人通訊錄</h3>
-                    <p class="text-gray-600">管理聯絡人名稱、Email 與專屬備註事項。</p>
+                    <p class="text-gray-600">管理聯絡人名稱、Email 以及單位與群組設定。</p>
                 </div>
                 <div onclick="app.navigate('webmail')" class="anime-card bg-blue-50 p-8 flex flex-col items-center cursor-pointer hover:bg-blue-100 text-center">
                     <div class="w-24 h-24 bg-blue-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
@@ -229,23 +229,31 @@
 
         <!-- ================= VIEW: CONTACTS ================= -->
         <div id="view-contacts" class="view-hidden absolute inset-0 overflow-y-auto p-8">
-            <div class="max-w-4xl mx-auto">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">寄件人通訊錄管理</h2>
-                    <div class="flex space-x-2">
-                        <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input">
-                        <button onclick="app.openContactModal()" class="anime-btn bg-green-300 px-4 py-2 flex items-center">
-                            <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增聯絡人
+            <div class="max-w-6xl mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block shrink-0">寄件人通訊錄</h2>
+                    <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                        <select id="filterCompany" onchange="app.renderContacts()" class="anime-input py-1.5 px-3 text-sm flex-1 md:flex-none">
+                            <option value="">📁 所有單位</option>
+                        </select>
+                        <select id="filterGroup" onchange="app.renderContacts()" class="anime-input py-1.5 px-3 text-sm flex-1 md:flex-none">
+                            <option value="">🏷️ 所有群組</option>
+                        </select>
+                        <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
+                        <button onclick="app.openContactModal()" class="anime-btn bg-green-300 px-4 py-1.5 flex items-center shrink-0">
+                            <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增
                         </button>
                     </div>
                 </div>
 
-                <div class="anime-card bg-white p-4">
-                    <table class="w-full text-left border-collapse">
+                <div class="anime-card bg-white p-4 overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[600px]">
                         <thead>
                             <tr class="border-b-2 border-gray-800 bg-gray-100">
                                 <th class="p-3 font-bold">名稱</th>
                                 <th class="p-3 font-bold">Email</th>
+                                <th class="p-3 font-bold">單位</th>
+                                <th class="p-3 font-bold">群組</th>
                                 <th class="p-3 font-bold">備註</th>
                                 <th class="p-3 font-bold w-24 text-center">操作</th>
                             </tr>
@@ -260,7 +268,7 @@
         <!-- ================= VIEW: WEBMAIL ================= -->
         <div id="view-webmail" class="view-hidden absolute inset-0 flex">
             
-            <aside class="w-56 bg-[#f1e6d2] border-r-4 border-gray-800 flex flex-col z-0">
+            <aside class="w-56 bg-[#f1e6d2] border-r-4 border-gray-800 flex flex-col z-0 shrink-0">
                 <div class="p-4 border-b-2 border-gray-800 bg-white">
                     <label class="block text-sm font-bold mb-1">切換作業帳號</label>
                     <select id="wmAccountSelect" class="anime-input w-full text-sm font-bold bg-yellow-50">
@@ -272,7 +280,7 @@
                         <i data-lucide="pen" class="w-5 h-5 mr-2"></i> 撰寫郵件
                     </button>
                 </div>
-                <nav class="flex-1 p-2 space-y-2">
+                <nav class="flex-1 p-2 space-y-2 overflow-y-auto">
                     <button onclick="app.setFolder('inbox')" id="fld-inbox" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition relative bg-white shadow-[3px_3px_0px_#1f2937] border-2 border-gray-800">
                         <i data-lucide="inbox" class="w-5 h-5 mr-3"></i> 收件匣
                         <span id="wm-badge-inbox" class="absolute right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-gray-800 hidden font-bold">0</span>
@@ -294,7 +302,7 @@
                 </div>
             </aside>
 
-            <section class="w-[400px] bg-white border-r-4 border-gray-800 flex flex-col z-0">
+            <section class="w-[400px] bg-white border-r-4 border-gray-800 flex flex-col z-0 shrink-0">
                 <div class="h-14 border-b-2 border-gray-800 flex items-center justify-between px-3 bg-gray-50 flex-shrink-0">
                     <div class="flex items-center space-x-3">
                         <input type="checkbox" class="anime-checkbox" id="selectAllCb" onclick="app.toggleSelectAll(this)">
@@ -316,7 +324,7 @@
                     </button>
                 </div>
                 <!-- 排序功能列 -->
-                <div class="px-3 py-2 bg-blue-50 border-b-2 border-gray-800 text-sm font-bold flex flex-col gap-2">
+                <div class="px-3 py-2 bg-blue-50 border-b-2 border-gray-800 text-sm font-bold flex flex-col gap-2 shrink-0">
                     <div class="flex justify-between items-center w-full">
                         <span id="wm-folder-title">收件匣</span>
                         <span class="text-xs">總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
@@ -362,17 +370,22 @@
                                 <div>
                                     <div class="font-bold text-gray-800 text-lg flex items-center flex-wrap gap-2">
                                         <span id="pv-sender-name">Sender</span>
-                                        <button onclick="app.openCompose(true)" class="text-xs bg-blue-100 border border-blue-800 text-blue-800 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="回覆此信件">
+                                        
+                                        <!-- 草稿編輯寄信按鈕 -->
+                                        <button id="pv-btn-edit" onclick="app.openCompose(false)" class="hidden text-xs bg-orange-100 border border-orange-800 text-orange-800 px-2 py-0.5 rounded hover:bg-orange-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="編輯並寄出草稿">
+                                            <i data-lucide="send" class="w-3 h-3 mr-1"></i> 寄信
+                                        </button>
+                                        <!-- 回信按鈕 -->
+                                        <button id="pv-btn-reply" onclick="app.openCompose(true)" class="text-xs bg-blue-100 border border-blue-800 text-blue-800 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="回覆此信件">
                                             <i data-lucide="reply" class="w-3 h-3 mr-1"></i> 回信
                                         </button>
+                                        
                                         <button onclick="app.addSenderToContacts()" class="text-xs bg-green-100 border border-green-800 text-green-800 px-2 py-0.5 rounded hover:bg-green-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="加入通訊錄">
                                             <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i> 加入
                                         </button>
-                                        <!-- 刪除此信件按鈕 -->
                                         <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
                                             <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
                                         </button>
-                                        <!-- 列印按鈕 -->
                                         <button onclick="app.printEmail()" class="text-xs bg-gray-100 border border-gray-800 text-gray-800 px-2 py-0.5 rounded hover:bg-gray-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="列印此信件">
                                             <i data-lucide="printer" class="w-3 h-3 mr-1"></i> 列印
                                         </button>
@@ -394,26 +407,38 @@
     </main>
 
     <!-- Modal: 新增聯絡人 -->
-    <div id="contactModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center">
-        <div class="anime-card bg-white p-6 w-full max-w-md">
+    <div id="contactModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white p-6 w-full max-w-xl">
             <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2" id="contactModalTitle">新增聯絡人</h3>
             <form onsubmit="event.preventDefault(); app.saveContact();" class="space-y-4">
                 <input type="hidden" id="ctId">
-                <div>
-                    <label class="block font-bold mb-1">名稱</label>
-                    <input type="text" id="ctName" required class="anime-input w-full">
-                </div>
-                <div>
-                    <label class="block font-bold mb-1">Email</label>
-                    <input type="email" id="ctEmail" required class="anime-input w-full">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold mb-1">名稱</label>
+                        <input type="text" id="ctName" required class="anime-input w-full">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Email</label>
+                        <input type="email" id="ctEmail" required class="anime-input w-full">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">單位</label>
+                        <input type="text" id="ctCompany" list="companyList" class="anime-input w-full" placeholder="輸入或選取現有單位">
+                        <datalist id="companyList"></datalist>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">群組設定</label>
+                        <input type="text" id="ctGroup" list="groupList" class="anime-input w-full" placeholder="輸入或選取現有群組">
+                        <datalist id="groupList"></datalist>
+                    </div>
                 </div>
                 <div>
                     <label class="block font-bold mb-1">備註</label>
                     <input type="text" id="ctNote" class="anime-input w-full">
                 </div>
-                <div class="flex justify-end space-x-3 mt-6">
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                     <button type="button" onclick="app.closeContactModal()" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
-                    <button type="submit" class="anime-btn bg-green-400 text-white px-6 py-2">儲存</button>
+                    <button type="submit" class="anime-btn bg-green-400 text-white px-6 py-2">儲存設定</button>
                 </div>
             </form>
         </div>
@@ -433,15 +458,15 @@
                 <input type="hidden" id="composeReplyToId">
                 
                 <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                    <span class="font-bold w-20">收件者</span>
+                    <span class="font-bold w-20 shrink-0">收件者</span>
                     <input type="text" id="composeTo" class="anime-input flex-1" placeholder="填寫 email 或從右方通訊錄選取 ➔">
-                    <select id="composeContactSelect" onchange="if(this.value) { document.getElementById('composeTo').value = this.value; this.value=''; }" class="anime-input sm:w-40 cursor-pointer bg-green-50">
+                    <select id="composeContactSelect" onchange="if(this.value) { document.getElementById('composeTo').value = this.value; this.value=''; }" class="anime-input sm:w-48 cursor-pointer bg-green-50 shrink-0">
                         <option value="">📖 選取通訊錄</option>
                     </select>
                 </div>
                 
                 <div class="flex items-center">
-                    <span class="font-bold w-20">主旨</span>
+                    <span class="font-bold w-20 shrink-0">主旨</span>
                     <input type="text" id="composeSubject" class="anime-input flex-1" placeholder="請輸入主旨">
                 </div>
                 <textarea id="composeBody" class="anime-input flex-1 w-full resize-none p-4 text-lg" placeholder="撰寫您的郵件內容..."></textarea>
@@ -573,6 +598,7 @@
 
                 onSnapshot(getCol('contacts'), (snap) => {
                     state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.updateContactFilters();
                     this.renderContacts();
                     this.renderContactDropdown(); 
                 });
@@ -712,6 +738,60 @@
                 });
             },
 
+            // --- 通訊錄更新 ---
+            updateContactFilters: function() {
+                const compSelect = document.getElementById('filterCompany');
+                const grpSelect = document.getElementById('filterGroup');
+                const compList = document.getElementById('companyList');
+                const grpList = document.getElementById('groupList');
+                
+                if(!compSelect || !grpSelect) return;
+
+                const currentComp = compSelect.value;
+                const currentGrp = grpSelect.value;
+
+                const companies = new Set();
+                const groups = new Set();
+
+                state.contacts.forEach(c => {
+                    if(c.company && c.company.trim() !== '') companies.add(c.company.trim());
+                    if(c.group && c.group.trim() !== '') groups.add(c.group.trim());
+                });
+
+                compSelect.innerHTML = '<option value="">📁 所有單位</option>';
+                companies.forEach(company => {
+                    compSelect.innerHTML += `<option value="${escapeHTML(company)}">${escapeHTML(company)}</option>`;
+                });
+                if(companies.has(currentComp)) compSelect.value = currentComp;
+
+                grpSelect.innerHTML = '<option value="">🏷️ 所有群組</option>';
+                groups.forEach(group => {
+                    grpSelect.innerHTML += `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`;
+                });
+                if(groups.has(currentGrp)) grpSelect.value = currentGrp;
+
+                if(compList) {
+                    compList.innerHTML = '';
+                    companies.forEach(company => {
+                        compList.innerHTML += `<option value="${escapeHTML(company)}">`;
+                    });
+                }
+                if(grpList) {
+                    grpList.innerHTML = `
+                        <option value="家人"></option>
+                        <option value="朋友"></option>
+                        <option value="同事"></option>
+                        <option value="客戶"></option>
+                        <option value="廠商"></option>
+                    `;
+                    groups.forEach(group => {
+                        if (!['家人', '朋友', '同事', '客戶', '廠商'].includes(group)) {
+                            grpList.innerHTML += `<option value="${escapeHTML(group)}">`;
+                        }
+                    });
+                }
+            },
+
             openContactModal: function(id = null) {
                 document.getElementById('contactModal').classList.remove('hidden');
                 if (id) {
@@ -720,12 +800,16 @@
                     document.getElementById('ctId').value = c.id;
                     document.getElementById('ctName').value = c.name;
                     document.getElementById('ctEmail').value = c.email;
+                    document.getElementById('ctCompany').value = c.company || '';
+                    document.getElementById('ctGroup').value = c.group || '';
                     document.getElementById('ctNote').value = c.note || '';
                 } else {
                     document.getElementById('contactModalTitle').textContent = '新增聯絡人';
                     document.getElementById('ctId').value = '';
                     document.getElementById('ctName').value = '';
                     document.getElementById('ctEmail').value = '';
+                    document.getElementById('ctCompany').value = '';
+                    document.getElementById('ctGroup').value = '';
                     document.getElementById('ctNote').value = '';
                 }
             },
@@ -736,6 +820,8 @@
                 const data = {
                     name: document.getElementById('ctName').value,
                     email: document.getElementById('ctEmail').value,
+                    company: document.getElementById('ctCompany').value,
+                    group: document.getElementById('ctGroup').value,
                     note: document.getElementById('ctNote').value
                 };
                 try {
@@ -754,13 +840,22 @@
 
             renderContacts: function() {
                 const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
+                const filterComp = document.getElementById('filterCompany')?.value;
+                const filterGrp = document.getElementById('filterGroup')?.value;
+                
                 const tbody = document.getElementById('contactsTableBody');
                 if(!tbody) return;
                 tbody.innerHTML = '';
                 
-                const filtered = state.contacts.filter(c => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term));
+                const filtered = state.contacts.filter(c => {
+                    const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
+                    const matchComp = filterComp ? c.company === filterComp : true;
+                    const matchGrp = filterGrp ? c.group === filterGrp : true;
+                    return matchTerm && matchComp && matchGrp;
+                });
+                
                 if (filtered.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
                     return;
                 }
                 
@@ -769,6 +864,10 @@
                         <tr class="hover:bg-green-50 transition">
                             <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
                             <td class="p-3 text-gray-600">${escapeHTML(c.email)}</td>
+                            <td class="p-3 text-gray-600">${escapeHTML(c.company || '-')}</td>
+                            <td class="p-3 text-gray-600">
+                                ${c.group ? `<span class="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded border border-gray-400 font-bold">${escapeHTML(c.group)}</span>` : '-'}
+                            </td>
                             <td class="p-3 text-sm text-gray-500">${escapeHTML(c.note || '-')}</td>
                             <td class="p-3 text-center space-x-2">
                                 <button onclick="app.openContactModal('${c.id}')" class="text-blue-600 hover:text-blue-800"><i data-lucide="edit" class="w-4 h-4"></i></button>
@@ -785,7 +884,10 @@
                 if(!sel) return;
                 sel.innerHTML = '<option value="">📖 選取通訊錄</option>';
                 state.contacts.forEach(c => {
-                    sel.innerHTML += `<option value="${escapeHTML(c.email)}">${escapeHTML(c.name)} (${escapeHTML(c.email)})</option>`;
+                    let label = escapeHTML(c.name);
+                    if (c.company) label += ` [${escapeHTML(c.company)}]`;
+                    label += ` - ${escapeHTML(c.email)}`;
+                    sel.innerHTML += `<option value="${escapeHTML(c.email)}">${label}</option>`;
                 });
             },
 
@@ -1190,6 +1292,17 @@
 
                 document.getElementById('wm-preview-empty').classList.add('hidden');
                 document.getElementById('wm-preview-content').classList.remove('hidden');
+
+                // 根據草稿或信件調整按鈕顯示
+                const btnReply = document.getElementById('pv-btn-reply');
+                const btnEdit = document.getElementById('pv-btn-edit');
+                if (state.currentFolder === 'drafts') {
+                    if (btnReply) btnReply.classList.add('hidden');
+                    if (btnEdit) btnEdit.classList.remove('hidden');
+                } else {
+                    if (btnReply) btnReply.classList.remove('hidden');
+                    if (btnEdit) btnEdit.classList.add('hidden');
+                }
 
                 let sName = '';
                 let sEmail = '';
