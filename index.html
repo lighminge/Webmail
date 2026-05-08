@@ -101,7 +101,6 @@
         </div>
         <!-- 導覽按鈕區域 -->
         <div id="nav-buttons" class="flex space-x-2 md:space-x-4 hidden items-center">
-            <!-- 回首頁按鈕 -->
             <button onclick="app.navigate('home')" class="anime-btn bg-yellow-300 px-3 md:px-4 py-1.5 flex items-center text-sm border-2 border-gray-800 shadow-[2px_2px_0px_#1f2937]">
                 <i data-lucide="home" class="w-4 h-4 mr-1"></i> 回首頁
             </button>
@@ -121,7 +120,7 @@
     <main class="flex-1 overflow-hidden relative">
 
         <!-- ================= VIEW: HOME ================= -->
-        <div id="view-home" class="view-hidden absolute inset-0 overflow-y-auto p-8 flex flex-col items-center justify-center">
+        <div id="view-home" class="absolute inset-0 overflow-y-auto p-8 flex flex-col items-center justify-center">
             <h2 class="text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎使用！所有資料將跨裝置共享</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
                 <div onclick="app.navigate('settings')" class="anime-card bg-pink-50 p-8 flex flex-col items-center cursor-pointer hover:bg-pink-100 text-center">
@@ -312,7 +311,8 @@
                     <span class="text-xs md:text-sm">總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
                 </div>
                 <div class="flex-1 overflow-y-auto bg-white relative">
-                    <ul id="wm-email-list" class="divide-y divide-gray-100"></ul>
+                    <!-- 【修改】移除 divide-y 避免干擾左側邊框渲染 -->
+                    <ul id="wm-email-list" class="w-full"></ul>
                     <div id="wm-empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-400">
                         <i data-lucide="inbox" class="w-12 h-12 mb-2"></i>
                         <p class="font-bold">沒有郵件</p>
@@ -331,22 +331,26 @@
                     <div class="p-6 border-b-2 border-gray-800 bg-white flex-shrink-0">
                         <h2 id="pv-subject" class="text-2xl font-bold mb-4 text-gray-900">主旨</h2>
                         <div class="flex flex-col xl:flex-row xl:items-center justify-between">
-                            <div class="flex items-center mb-3 xl:mb-0">
-                                <div id="pv-avatar" class="w-10 h-10 rounded-full border-2 border-gray-800 bg-yellow-200 flex items-center justify-center font-bold text-lg mr-3">A</div>
+                            <div class="flex items-center mb-3 xl:mb-0 flex-wrap gap-2">
+                                <div id="pv-avatar" class="w-10 h-10 rounded-full border-2 border-gray-800 bg-yellow-200 flex items-center justify-center font-bold text-lg mr-1 shrink-0">A</div>
                                 <div>
-                                    <div class="font-bold text-gray-800 text-lg flex items-center">
+                                    <div class="font-bold text-gray-800 text-lg flex items-center flex-wrap gap-2">
                                         <span id="pv-sender-name">Sender</span>
-                                        <button onclick="app.openCompose(true)" class="ml-3 text-xs bg-blue-100 border border-blue-800 text-blue-800 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="回覆此信件">
+                                        <button onclick="app.openCompose(true)" class="text-xs bg-blue-100 border border-blue-800 text-blue-800 px-2 py-0.5 rounded hover:bg-blue-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="回覆此信件">
                                             <i data-lucide="reply" class="w-3 h-3 mr-1"></i> 回信
                                         </button>
-                                        <button onclick="app.addSenderToContacts()" class="ml-2 text-xs bg-green-100 border border-green-800 text-green-800 px-2 py-0.5 rounded hover:bg-green-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="加入通訊錄">
+                                        <button onclick="app.addSenderToContacts()" class="text-xs bg-green-100 border border-green-800 text-green-800 px-2 py-0.5 rounded hover:bg-green-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="加入通訊錄">
                                             <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i> 加入
                                         </button>
+                                        <!-- 【新增】刪除此信件按鈕 -->
+                                        <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
+                                            <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
+                                        </button>
                                     </div>
-                                    <div id="pv-sender-email" class="text-sm text-gray-500">email@example.com</div>
+                                    <div id="pv-sender-email" class="text-sm text-gray-500 mt-1">email@example.com</div>
                                 </div>
                             </div>
-                            <div id="pv-date" class="text-sm text-gray-500 font-bold">Date</div>
+                            <div id="pv-date" class="text-sm text-gray-500 font-bold shrink-0">Date</div>
                         </div>
                     </div>
                     <div class="flex-1 overflow-hidden m-4 anime-card text-lg leading-relaxed text-gray-800 flex flex-col" id="pv-body">
@@ -435,7 +439,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
@@ -485,12 +489,8 @@
         window.app = {
             init: async function() {
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try { await signInWithCustomToken(auth, __initial_auth_token); } catch(e){ await signInAnonymously(auth); }
-                    } else {
-                        // 強制執行匿名登入，免密碼直接取用公共資料
-                        await signInAnonymously(auth);
-                    }
+                    // 強制執行匿名登入，免密碼直接取用公共資料
+                    await signInAnonymously(auth);
 
                     onAuthStateChanged(auth, (currentUser) => {
                         if (currentUser) {
@@ -954,17 +954,24 @@
                         const isSelected = state.selectedEmailIds.has(strId);
                         const isViewing = state.viewingEmail && state.viewingEmail.id === email.id;
                         
-                        let bgClass = 'bg-white border-transparent hover:bg-gray-50';
+                        // 動態決定信件列的背景與邊框樣式 
+                        // 【修正】使用獨立的 border-b 而不是 divide-y，徹底解決左側邊框渲染衝突問題
+                        let bgClass = 'bg-white hover:bg-gray-50';
+                        let borderLeftClass = 'border-l-transparent';
+                        
                         if (isViewing) {
-                            bgClass = 'bg-blue-100 border-blue-500'; 
+                            bgClass = 'bg-blue-100'; 
+                            borderLeftClass = 'border-blue-500';
                         } else if (isSelected) {
-                            bgClass = 'bg-yellow-200 border-yellow-500'; 
+                            bgClass = 'bg-yellow-200'; 
+                            borderLeftClass = 'border-yellow-500';
                         } else if (!email.read) {
-                            bgClass = 'bg-orange-50 border-orange-400'; 
+                            bgClass = 'bg-orange-50'; 
+                            borderLeftClass = 'border-orange-400';
                         } 
                         
                         const li = document.createElement('li');
-                        li.className = `p-4 cursor-pointer flex items-center transition border-l-[6px] ${bgClass}`;
+                        li.className = `p-4 cursor-pointer flex items-center transition border-b border-gray-200 border-l-4 ${borderLeftClass} ${bgClass}`;
                         
                         const dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
                         
@@ -1060,6 +1067,43 @@
                 document.getElementById('ctId').value = '';
                 document.getElementById('ctName').value = state.viewingEmail.senderName || '';
                 document.getElementById('ctEmail').value = state.viewingEmail.sender || state.viewingEmail.recipient || '';
+            },
+            
+            // 【新增】刪除單獨預覽中的郵件功能
+            deleteViewingEmail: async function() {
+                if (!state.viewingEmail) return;
+                const emailId = String(state.viewingEmail.id);
+                
+                if (!confirm(`確定要刪除此封郵件嗎？`)) return;
+
+                if (state.currentFolder === 'inbox') {
+                    const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                    try {
+                        showToast("向伺服器發送同步刪除指令...");
+                        const response = await fetch(VERCEL_API_BASE + '/api/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, uids: [emailId] })
+                        });
+                        if (!response.ok) throw new Error("API異常");
+                        state.imapEmails = state.imapEmails.filter(e => String(e.id) !== emailId);
+                    } catch (e) {
+                        console.warn(e);
+                        state.imapEmails = state.imapEmails.filter(e => String(e.id) !== emailId);
+                    }
+                } else {
+                    const ref = getDoc('local_emails', emailId);
+                    if (state.currentFolder === 'trash') {
+                        await deleteDoc(ref);
+                    } else {
+                        await updateDoc(ref, { folder: 'trash' });
+                    }
+                }
+
+                state.selectedEmailIds.delete(emailId); 
+                this.closeEmailPreview();
+                this.renderWebmailList();
+                showToast("郵件已刪除");
             },
 
             batchDelete: async function() {
