@@ -99,7 +99,6 @@
             <i data-lucide="mail" class="text-orange-500 w-8 h-8 mr-2"></i>
             <h1 class="text-3xl font-bold tracking-wider text-gray-800 mt-1">OmniMail</h1>
         </div>
-        <!-- 導覽按鈕區域 -->
         <div id="nav-buttons" class="flex space-x-4">
             <button onclick="app.navigate('settings')" class="anime-btn bg-pink-200 px-4 py-1.5 flex items-center text-sm">
                 <i data-lucide="settings" class="w-4 h-4 mr-1"></i> 信箱設定
@@ -230,7 +229,6 @@
                             </tr>
                         </thead>
                         <tbody id="contactsTableBody" class="divide-y divide-gray-300">
-                            <!-- JS 動態插入 -->
                         </tbody>
                     </table>
                 </div>
@@ -255,10 +253,11 @@
                 <nav class="flex-1 p-2 space-y-2">
                     <button onclick="app.setFolder('inbox')" id="fld-inbox" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition relative bg-white shadow-[3px_3px_0px_#1f2937] border-2 border-gray-800">
                         <i data-lucide="inbox" class="w-5 h-5 mr-3"></i> 收件匣
-                        <span id="wm-badge-inbox" class="absolute right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-gray-800 hidden">0</span>
+                        <span id="wm-badge-inbox" class="absolute right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-gray-800 hidden font-bold">0</span>
                     </button>
-                    <button onclick="app.setFolder('drafts')" id="fld-drafts" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition">
+                    <button onclick="app.setFolder('drafts')" id="fld-drafts" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition relative">
                         <i data-lucide="file-edit" class="w-5 h-5 mr-3"></i> 草稿
+                        <span id="wm-badge-drafts" class="absolute right-2 bg-yellow-500 text-gray-900 text-xs px-2 py-0.5 rounded-full border-2 border-gray-800 hidden font-bold">0</span>
                     </button>
                     <button onclick="app.setFolder('sent')" id="fld-sent" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition">
                         <i data-lucide="send" class="w-5 h-5 mr-3"></i> 寄件匣
@@ -382,6 +381,7 @@
             </div>
             <div class="p-6 flex-1 flex flex-col space-y-4 overflow-y-auto bg-[#fdf6e3]">
                 <input type="hidden" id="composeDraftId">
+                <input type="hidden" id="composeReplyToId">
                 
                 <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                     <span class="font-bold w-20">收件者</span>
@@ -442,11 +442,6 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
 
-        // ==========================================
-        // 核心架構：封裝公共資料節點 (跨瀏覽器共享)
-        // ==========================================
-        // 說明：這完美解決了原本「綁定個人帳戶導致換瀏覽器資料會消失」的問題。
-        // 它使用 public/data 路徑，讓所有匿名連線的使用者共同讀寫，等同於從最上層存取！
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
 
@@ -475,7 +470,6 @@
         window.app = {
             init: async function() {
                 try {
-                    // 自動進行匿名登入以取得 Firebase 存取權限
                     await signInAnonymously(auth);
 
                     onAuthStateChanged(auth, (currentUser) => {
@@ -519,6 +513,7 @@
 
                 onSnapshot(getCol('local_emails'), (snap) => {
                     state.localEmails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.updateFolderBadges();
                     if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
                         this.renderWebmailList();
                     }
@@ -718,6 +713,7 @@
                 state.selectedAccountId = accId;
                 this.closeEmailPreview();
                 this.clearSelection();
+                this.updateFolderBadges();
                 
                 if (accId) {
                     const acc = state.accounts.find(a => a.id === accId);
@@ -768,6 +764,7 @@
                     }
                 }, seconds * 1000);
             },
+            
             stopAutoSync: function() {
                 if (checkTimer) clearInterval(checkTimer);
                 const st = document.getElementById('wm-status-text');
@@ -780,6 +777,34 @@
                     return state.imapEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox');
                 } else {
                     return state.localEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === state.currentFolder);
+                }
+            },
+            
+            updateFolderBadges: function() {
+                if (!state.selectedAccountId) return;
+                
+                // 收件匣未讀數量
+                const unreadInbox = state.imapEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox' && !e.read).length;
+                const badgeInbox = document.getElementById('wm-badge-inbox');
+                if (badgeInbox) {
+                    if (unreadInbox > 0) {
+                        badgeInbox.textContent = unreadInbox;
+                        badgeInbox.classList.remove('hidden');
+                    } else {
+                        badgeInbox.classList.add('hidden');
+                    }
+                }
+
+                // 草稿總數量
+                const draftsCount = state.localEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'drafts').length;
+                const badgeDrafts = document.getElementById('wm-badge-drafts');
+                if (badgeDrafts) {
+                    if (draftsCount > 0) {
+                        badgeDrafts.textContent = draftsCount;
+                        badgeDrafts.classList.remove('hidden');
+                    } else {
+                        badgeDrafts.classList.add('hidden');
+                    }
                 }
             },
 
@@ -825,6 +850,7 @@
                     const syncEl = document.getElementById('wm-last-sync');
                     if(syncEl) syncEl.textContent = `最後同步：${new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}`;
 
+                    this.updateFolderBadges();
                     if (state.currentFolder === 'inbox') this.renderWebmailList();
                     
                 } catch (e) {
@@ -835,7 +861,6 @@
                 }
             },
 
-            // === 完美的選取狀態控制 ===
             toggleEmailSelect: function(checkboxEl, emailId) {
                 const strId = String(emailId); 
                 
@@ -844,7 +869,6 @@
                 } else {
                     state.selectedEmailIds.delete(strId);
                 }
-                // 直接重新渲染清單，確保 UI 的背景色、粗細框完美套用
                 this.renderWebmailList();
             },
 
@@ -876,15 +900,7 @@
                 const unreadEl = document.getElementById('wm-unread-count');
                 if(unreadEl) unreadEl.textContent = unreadCount;
                 
-                const badge = document.getElementById('wm-badge-inbox');
-                if (badge) {
-                    if(unreadCount > 0) {
-                        badge.textContent = unreadCount;
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
-                    }
-                }
+                this.updateFolderBadges();
 
                 if (emails.length === 0) {
                     listEl.classList.add('hidden');
@@ -901,26 +917,29 @@
                     emails.forEach(email => {
                         const strId = String(email.id);
                         const isSelected = state.selectedEmailIds.has(strId);
+                        const isViewing = state.viewingEmail && state.viewingEmail.id === email.id;
                         
-                        // 動態決定信件列的背景與邊框樣式 (增強選取狀態)
-                        let bgClass = '';
-                        if (isSelected) {
-                            bgClass = 'bg-yellow-200 border-yellow-500 shadow-[inset_6px_0_0_#eab308]'; 
+                        // 動態決定信件列的背景與邊框樣式 (完全分離顏色，避免混淆)
+                        let bgClass = 'bg-white border-transparent hover:bg-gray-50';
+                        if (isViewing) {
+                            bgClass = 'bg-blue-100 border-blue-500'; // 正在瀏覽中的信件 (亮藍色)
+                        } else if (isSelected) {
+                            bgClass = 'bg-yellow-200 border-yellow-500'; // 勾選狀態 (亮黃色)
                         } else if (!email.read) {
-                            bgClass = 'bg-orange-50 border-orange-400'; 
-                        } else {
-                            bgClass = 'bg-white border-transparent hover:bg-gray-50'; 
-                        }
+                            bgClass = 'bg-orange-50 border-orange-400'; // 未讀狀態 (橘色系)
+                        } 
                         
                         const li = document.createElement('li');
+                        // 統一使用乾淨的 border-l-[6px] 屬性，避免陰影造成的粗細不一
                         li.className = `p-4 cursor-pointer flex items-center transition border-l-[6px] ${bgClass}`;
                         
                         const dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
                         
-                        // 字體粗細與未讀 Badge 控制 (一眼分辨已讀未讀)
                         const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black text-lg';
                         const subjectClass = email.read ? 'text-gray-500 font-normal' : 'text-gray-900 font-bold';
+                        
                         const unreadBadge = email.read ? '' : `<span class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded border border-red-800 mr-2 shadow-[2px_2px_0px_#7f1d1d] shrink-0 animate-pulse inline-block align-middle">🔴 未讀</span>`;
+                        const repliedBadge = email.replied ? `<span class="text-[10px] text-blue-600 font-bold border border-blue-600 px-1 rounded mr-2 inline-block align-middle bg-blue-50">已回信</span>` : '';
                         
                         li.innerHTML = `
                             <div class="mr-4" onclick="event.stopPropagation()">
@@ -930,6 +949,7 @@
                                 <div class="flex justify-between items-baseline mb-1">
                                     <div class="truncate pr-2 ${senderClass} flex items-center">
                                         ${unreadBadge}
+                                        ${repliedBadge}
                                         <span class="truncate">${email.senderName || email.recipient || '(無收件人)'}</span>
                                     </div>
                                     <p class="text-xs font-bold ${email.read ? 'text-gray-400' : 'text-orange-600'} flex-shrink-0">${dateStr}</p>
@@ -947,12 +967,25 @@
                 const strId = String(id);
                 const email = this.getCurrentEmails().find(e => String(e.id) === strId);
                 if (!email) return;
+                
                 state.viewingEmail = email;
 
+                // 若為未讀且在收件匣，更新為已讀並通知伺服器
                 if (!email.read && email.folder === 'inbox') {
                     email.read = true;
-                    this.renderWebmailList();
+                    
+                    const acc = state.accounts.find(a => a.id === state.selectedAccountId);
+                    if (acc) {
+                        fetch(VERCEL_API_BASE + '/api/mark-read', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user: acc.email, pass: acc.password, imapHost: acc.imap, uid: strId })
+                        }).catch(e => console.error("同步已讀失敗", e));
+                    }
                 }
+                
+                // 強制重新渲染列表以套用「瀏覽中」的亮藍色高亮
+                this.renderWebmailList();
 
                 document.getElementById('wm-preview-empty').classList.add('hidden');
                 document.getElementById('wm-preview-content').classList.remove('hidden');
@@ -985,6 +1018,9 @@
                 if(c) c.classList.add('hidden');
                 const e = document.getElementById('wm-preview-empty');
                 if(e) e.classList.remove('hidden');
+                
+                // 關閉預覽時，重新渲染清單以消除「瀏覽中」的亮藍色
+                this.renderWebmailList();
             },
 
             addSenderToContacts: function() {
@@ -1037,8 +1073,20 @@
             batchMarkRead: function() {
                 if (state.selectedEmailIds.size === 0) return;
                 if (state.currentFolder === 'inbox') {
+                    const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
+                    
                     state.imapEmails.forEach(e => {
-                        if (state.selectedEmailIds.has(String(e.id))) e.read = true;
+                        if (state.selectedEmailIds.has(String(e.id)) && !e.read) {
+                            e.read = true;
+                            // 批次同步伺服器已讀狀態
+                            if (activeAcc) {
+                                fetch(VERCEL_API_BASE + '/api/mark-read', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, uid: e.id })
+                                }).catch(err => console.error("標示已讀失敗", err));
+                            }
+                        }
                     });
                     this.clearSelection();
                     this.renderWebmailList();
@@ -1078,11 +1126,17 @@
                 document.getElementById('composeTitle').textContent = `使用 ${acc.email} 撰寫`;
                 
                 document.getElementById('composeDraftId').value = '';
+                document.getElementById('composeReplyToId').value = ''; // 清空回信ID紀錄
                 document.getElementById('composeTo').value = '';
                 document.getElementById('composeSubject').value = '';
                 document.getElementById('composeBody').value = '';
 
                 if (isReply && state.viewingEmail) {
+                    // 若為回覆，紀錄原始信件 ID 供後續標記
+                    if (state.currentFolder === 'inbox') {
+                        document.getElementById('composeReplyToId').value = state.viewingEmail.id;
+                    }
+                    
                     document.getElementById('composeTo').value = state.viewingEmail.sender || state.viewingEmail.recipient;
                     document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
                     document.getElementById('composeBody').value = `\n\n--- 原始郵件 ---\n${state.viewingEmail.body}`;
@@ -1127,6 +1181,8 @@
                 const to = document.getElementById('composeTo').value.trim();
                 const subject = document.getElementById('composeSubject').value;
                 const bodyText = document.getElementById('composeBody').value;
+                const replyToId = document.getElementById('composeReplyToId').value;
+                
                 if (!to) { showToast("請輸入收件者"); return; }
                 
                 showToast("傳送中...");
@@ -1149,6 +1205,20 @@
                         body: bodyText, html: bodyText.replace(/\n/g, '<br>'),
                         bodySnippet: bodyText.substring(0, 40), timestamp: Date.now(), read: true
                     });
+
+                    // 處理回信狀態標記
+                    if (replyToId) {
+                        fetch(VERCEL_API_BASE + '/api/mark-answered', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user: acc.email, pass: acc.password, imapHost: acc.imap, uid: replyToId })
+                        }).catch(e => console.error("標記已回覆失敗", e));
+                        
+                        // 樂觀更新前端畫面
+                        const origEmail = state.imapEmails.find(e => String(e.id) === String(replyToId));
+                        if (origEmail) origEmail.replied = true;
+                        this.renderWebmailList();
+                    }
 
                     const draftId = document.getElementById('composeDraftId').value;
                     if (draftId) await deleteDoc(getDoc('local_emails', draftId));
