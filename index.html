@@ -99,7 +99,8 @@
             <i data-lucide="mail" class="text-orange-500 w-8 h-8 mr-2"></i>
             <h1 class="text-3xl font-bold tracking-wider text-gray-800 mt-1">OmniMail</h1>
         </div>
-        <div class="flex space-x-4">
+        <!-- 導覽按鈕區域 -->
+        <div id="nav-buttons" class="flex space-x-4">
             <button onclick="app.navigate('settings')" class="anime-btn bg-pink-200 px-4 py-1.5 flex items-center text-sm">
                 <i data-lucide="settings" class="w-4 h-4 mr-1"></i> 信箱設定
             </button>
@@ -116,7 +117,7 @@
 
         <!-- ================= VIEW: HOME ================= -->
         <div id="view-home" class="absolute inset-0 overflow-y-auto p-8 flex flex-col items-center justify-center">
-            <h2 class="text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎回來！請選擇作業項目</h2>
+            <h2 class="text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎使用！所有資料將跨裝置共享</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
                 <div onclick="app.navigate('settings')" class="anime-card bg-pink-50 p-8 flex flex-col items-center cursor-pointer hover:bg-pink-100 text-center">
                     <div class="w-24 h-24 bg-pink-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
@@ -252,7 +253,7 @@
                     </button>
                 </div>
                 <nav class="flex-1 p-2 space-y-2">
-                    <button onclick="app.setFolder('inbox')" id="fld-inbox" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition relative">
+                    <button onclick="app.setFolder('inbox')" id="fld-inbox" class="w-full text-left px-4 py-2 font-bold rounded-lg hover:bg-white flex items-center transition relative bg-white shadow-[3px_3px_0px_#1f2937] border-2 border-gray-800">
                         <i data-lucide="inbox" class="w-5 h-5 mr-3"></i> 收件匣
                         <span id="wm-badge-inbox" class="absolute right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-gray-800 hidden">0</span>
                     </button>
@@ -335,9 +336,8 @@
                             <div id="pv-date" class="text-sm text-gray-500 font-bold">Date</div>
                         </div>
                     </div>
-                    <!-- 預覽內文容器 -->
                     <div class="flex-1 overflow-hidden m-4 anime-card text-lg leading-relaxed text-gray-800 flex flex-col" id="pv-body">
-                        <!-- 郵件內容會根據是否為 HTML 格式注入到這裡 -->
+                        <!-- 郵件內容 -->
                     </div>
                 </div>
             </section>
@@ -421,27 +421,37 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // ==========================================
+        // 核心設定：Firebase 與 Vercel 網址
+        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyBLHWC6grK-mfDATUY76AX1GTce5iHDi30",
             authDomain: "github-webmail.firebaseapp.com",
             projectId: "github-webmail",
             storageBucket: "github-webmail.firebasestorage.app",
             messagingSenderId: "76586089939",
-            appId: "1:76586089939:web:1300004d62838a077cc326",
-            measurementId: "G-7B61X3JLMY"
+            appId: "1:76586089939:web:1300004d62838a077cc326"
         };
-        const defaultAppId = 'omni-webmail-system';
-        const appId = typeof __app_id !== 'undefined' ? __app_id : defaultAppId;
+        
+        const appId = 'omni-webmail-system';
         const VERCEL_API_BASE = 'https://webmail-api-lighminges-projects.vercel.app'; 
 
         let appInstance, auth, db, user;
         let checkTimer = null;
 
+        // ==========================================
+        // 核心架構：封裝公共資料節點 (跨瀏覽器共享)
+        // ==========================================
+        // 說明：這完美解決了原本「綁定個人帳戶導致換瀏覽器資料會消失」的問題。
+        // 它使用 public/data 路徑，讓所有匿名連線的使用者共同讀寫，等同於從最上層存取！
+        const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
+        const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
+
         const state = {
-            currentView: 'home',
+            currentView: 'home', 
             accounts: [],
             contacts: [],
             localEmails: [], 
@@ -465,23 +475,18 @@
         window.app = {
             init: async function() {
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try { await signInWithCustomToken(auth, __initial_auth_token); } 
-                        catch (e) { await signInAnonymously(auth); }
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+                    // 自動進行匿名登入以取得 Firebase 存取權限
+                    await signInAnonymously(auth);
 
                     onAuthStateChanged(auth, (currentUser) => {
                         if (currentUser) {
                             user = currentUser;
-                            const d = document.getElementById('userIdDisplay');
-                            if(d) d.textContent = user.uid.substring(0,8) + '...';
                             this.setupListeners();
+                            document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     });
                 } catch (e) {
-                    showToast("系統登入失敗");
+                    showToast("系統初始化失敗");
                 }
                 
                 const wmAccSelect = document.getElementById('wmAccountSelect');
@@ -494,9 +499,8 @@
 
             setupListeners: function() {
                 if (!user) return;
-                const uid = user.uid;
 
-                onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'accounts'), (snap) => {
+                onSnapshot(getCol('accounts'), (snap) => {
                     state.accounts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderSettingsList();
                     this.renderWmAccountSelect();
@@ -504,19 +508,16 @@
                     if (state.accounts.length > 0 && !state.selectedAccountId) {
                         this.selectAccount(state.accounts[0].id);
                     }
-                    
-                    const overlay = document.getElementById('loadingOverlay');
-                    if(overlay) overlay.classList.add('hidden');
                     lucide.createIcons();
                 }, e => console.error("Acc Listener", e));
 
-                onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'contacts'), (snap) => {
+                onSnapshot(getCol('contacts'), (snap) => {
                     state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderContacts();
                     this.renderContactDropdown(); 
                 });
 
-                onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'local_emails'), (snap) => {
+                onSnapshot(getCol('local_emails'), (snap) => {
                     state.localEmails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
                         this.renderWebmailList();
@@ -586,11 +587,11 @@
 
                 try {
                     if (id) {
-                        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id), data);
+                        await updateDoc(getDoc('accounts', id), data);
                         showToast("設定已更新");
                     } else {
                         data.createdAt = Date.now();
-                        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'accounts'), data);
+                        await addDoc(getCol('accounts'), data);
                         showToast("帳號已新增");
                     }
                     this.toggleSettingsForm(false);
@@ -600,7 +601,7 @@
             deleteAccount: async function(id) {
                 if (!confirm("確定刪除此信箱連線？")) return;
                 try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id));
+                    await deleteDoc(getDoc('accounts', id));
                     if (state.selectedAccountId === id) this.selectAccount(null);
                     showToast("已刪除");
                 } catch (e) { showToast("刪除失敗"); }
@@ -654,8 +655,8 @@
                     note: document.getElementById('ctNote').value
                 };
                 try {
-                    if (id) await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'contacts', id), data);
-                    else await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'contacts'), data);
+                    if (id) await updateDoc(getDoc('contacts', id), data);
+                    else await addDoc(getCol('contacts'), data);
                     showToast("聯絡人已儲存");
                     this.closeContactModal();
                 } catch (e) { showToast("儲存失敗"); }
@@ -663,7 +664,7 @@
             
             deleteContact: async function(id) {
                 if (!confirm("刪除此聯絡人？")) return;
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'contacts', id));
+                await deleteDoc(getDoc('contacts', id));
                 showToast("聯絡人已刪除");
             },
 
@@ -834,7 +835,7 @@
                 }
             },
 
-            // === 統一重新渲染機制，徹底解決選取不同步問題 ===
+            // === 完美的選取狀態控制 ===
             toggleEmailSelect: function(checkboxEl, emailId) {
                 const strId = String(emailId); 
                 
@@ -843,8 +844,7 @@
                 } else {
                     state.selectedEmailIds.delete(strId);
                 }
-                
-                // 直接重新渲染清單，確保 UI 與 State 完美同步，不會產生 Class 遺漏
+                // 直接重新渲染清單，確保 UI 的背景色、粗細框完美套用
                 this.renderWebmailList();
             },
 
@@ -905,11 +905,11 @@
                         // 動態決定信件列的背景與邊框樣式 (增強選取狀態)
                         let bgClass = '';
                         if (isSelected) {
-                            bgClass = 'bg-yellow-200 border-yellow-500 shadow-[inset_6px_0_0_#eab308]'; // 選取狀態非常明顯
+                            bgClass = 'bg-yellow-200 border-yellow-500 shadow-[inset_6px_0_0_#eab308]'; 
                         } else if (!email.read) {
-                            bgClass = 'bg-orange-50 border-orange-400'; // 未讀狀態
+                            bgClass = 'bg-orange-50 border-orange-400'; 
                         } else {
-                            bgClass = 'bg-white border-transparent hover:bg-gray-50'; // 已讀狀態
+                            bgClass = 'bg-white border-transparent hover:bg-gray-50'; 
                         }
                         
                         const li = document.createElement('li');
@@ -920,7 +920,7 @@
                         // 字體粗細與未讀 Badge 控制 (一眼分辨已讀未讀)
                         const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black text-lg';
                         const subjectClass = email.read ? 'text-gray-500 font-normal' : 'text-gray-900 font-bold';
-                        const unreadBadge = email.read ? '' : `<span class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded border border-red-800 mr-2 shadow-[2px_2px_0px_#7f1d1d] shrink-0 animate-pulse inline-block align-middle">未讀</span>`;
+                        const unreadBadge = email.read ? '' : `<span class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded border border-red-800 mr-2 shadow-[2px_2px_0px_#7f1d1d] shrink-0 animate-pulse inline-block align-middle">🔴 未讀</span>`;
                         
                         li.innerHTML = `
                             <div class="mr-4" onclick="event.stopPropagation()">
@@ -1018,7 +1018,7 @@
                 } else {
                     const batch = writeBatch(db);
                     state.selectedEmailIds.forEach(id => {
-                        const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', id);
+                        const ref = getDoc('local_emails', id);
                         if (state.currentFolder === 'trash') {
                             batch.delete(ref);
                         } else {
@@ -1050,7 +1050,7 @@
                 if (state.currentFolder !== 'trash' || state.selectedEmailIds.size === 0) return;
                 const batch = writeBatch(db);
                 state.selectedEmailIds.forEach(id => {
-                    const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', id);
+                    const ref = getDoc('local_emails', id);
                     batch.update(ref, { folder: 'inbox' });
                 });
                 await batch.commit();
@@ -1065,7 +1065,7 @@
                 
                 const batch = writeBatch(db);
                 trashEmails.forEach(e => {
-                    batch.delete(doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', e.id));
+                    batch.delete(getDoc('local_emails', e.id));
                 });
                 await batch.commit();
                 this.closeEmailPreview();
@@ -1114,9 +1114,8 @@
                 };
 
                 try {
-                    const collRef = collection(db, 'artifacts', appId, 'users', user.uid, 'local_emails');
-                    if (draftId) await updateDoc(doc(collRef, draftId), data);
-                    else await addDoc(collRef, data);
+                    if (draftId) await updateDoc(getDoc('local_emails', draftId), data);
+                    else await addDoc(getCol('local_emails'), data);
                     
                     showToast("已存入草稿！");
                     this.closeCompose();
@@ -1145,14 +1144,14 @@
                     const data = await response.json();
                     if (!data.success) throw new Error(data.error);
 
-                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'local_emails'), {
+                    await addDoc(getCol('local_emails'), {
                         accountId: acc.id, folder: 'sent', sender: acc.email, senderName: acc.name, recipient: to, subject, 
                         body: bodyText, html: bodyText.replace(/\n/g, '<br>'),
                         bodySnippet: bodyText.substring(0, 40), timestamp: Date.now(), read: true
                     });
 
                     const draftId = document.getElementById('composeDraftId').value;
-                    if (draftId) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'local_emails', draftId));
+                    if (draftId) await deleteDoc(getDoc('local_emails', draftId));
 
                     showToast("郵件已成功傳送！");
                     this.closeCompose();
