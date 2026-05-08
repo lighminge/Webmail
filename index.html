@@ -1688,7 +1688,7 @@
                 if (!state.viewingEmail) return;
                 const emailId = String(state.viewingEmail.id);
                 
-                if (!confirm(`確定要刪除此封郵件嗎？`)) return;
+                if (!(await app.customConfirm("刪除信件", "確定要刪除此封郵件嗎？"))) return;
 
                 if (state.currentFolder === 'inbox') {
                     const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
@@ -1723,7 +1723,7 @@
 
             batchDelete: async function() {
                 if (state.selectedEmailIds.size === 0) { showToast("請先選取郵件"); return; }
-                if (!confirm(`確定要刪除選取的 ${state.selectedEmailIds.size} 封郵件嗎？`)) return;
+                if (!(await app.customConfirm("批次刪除", `確定要刪除選取的 ${state.selectedEmailIds.size} 封郵件嗎？`))) return;
 
                 if (state.currentFolder === 'inbox') {
                     const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
@@ -1798,7 +1798,7 @@
             emptyTrash: async function() {
                 const trashEmails = this.getCurrentEmails();
                 if (trashEmails.length === 0) return;
-                if (!confirm("確定要永久清空垃圾桶？這將無法復原。")) return;
+                if (!(await app.customConfirm("清空垃圾桶", "確定要永久清空垃圾桶？這將無法復原。"))) return;
                 
                 const batch = writeBatch(db);
                 trashEmails.forEach(e => {
