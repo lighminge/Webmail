@@ -281,7 +281,6 @@
                     </select>
                 </div>
                 <div class="p-4">
-                    <!-- 點擊時明確傳入 'new'，代表開啟全新的乾淨信件 -->
                     <button onclick="app.openCompose('new')" class="anime-btn w-full bg-orange-400 text-white py-3 flex items-center justify-center text-lg shadow-[4px_4px_0px_#1f2937]">
                         <i data-lucide="pen" class="w-5 h-5 mr-2"></i> 撰寫郵件
                     </button>
@@ -1947,8 +1946,8 @@
                 const to = state.composeRecipients.join(', ');
 
                 let totalAttachmentSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
-                if (totalAttachmentSize > 800 * 1024) {
-                    showToast("⚠️ 草稿暫存限制：草稿夾的附件總和不得超過 800KB，請直接寄出或減少附件。");
+                if (totalAttachmentSize > 600 * 1024) {
+                    showToast("⚠️ 草稿暫存限制：為了避免資料庫過載，草稿內附件總和不得超過 600KB，請直接寄出。");
                     return;
                 }
 
@@ -1991,10 +1990,9 @@
                 
                 if (!to) { showToast("請輸入收件者"); return; }
                 
-                // 【新增】檢查附件總大小，避免超過 Vercel 4.5MB 限制
                 let totalAttachmentSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
-                if (totalAttachmentSize > 3.5 * 1024 * 1024) {
-                    showToast("⚠️ 附件總和不得超過 3.5MB，請減少附件後再試。");
+                if (totalAttachmentSize > 2.8 * 1024 * 1024) {
+                    showToast("⚠️ 系統限制：附件總和不得超過 2.8MB，請減少檔案大小後再寄出。");
                     return;
                 }
                 
@@ -2011,10 +2009,14 @@
                     });
                     
                     if (!response.ok) {
-                        const errText = await response.text();
-                        console.error("Server Error:", errText);
-                        throw new Error(`伺服器拒絕 (${response.status})，可能附件過大`);
+                        let errorDetail = `伺服器拒絕 (${response.status})`;
+                        try {
+                            const errJson = await response.json();
+                            if (errJson.error) errorDetail = errJson.error;
+                        } catch(e) {}
+                        throw new Error(errorDetail);
                     }
+                    
                     const data = await response.json();
                     if (!data.success) throw new Error(data.error);
 
@@ -2044,7 +2046,8 @@
                     showToast("郵件已成功傳送！");
                     this.closeCompose();
                 } catch (e) {
-                    showToast("傳送失敗: " + (e.message || "請檢查設定與網路"));
+                    showToast("傳送失敗: " + (e.message || "發生未知網路錯誤"));
+                    console.error(e);
                 }
             }
         };
