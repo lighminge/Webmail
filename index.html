@@ -461,13 +461,13 @@
             currentView: 'home',
             accounts: [],
             contacts: [],
-            localEmails: [], // 用來存草稿、寄件備份等本地信件
-            imapEmails: [],  // 真實從 Vercel 抓回來的信件
+            localEmails: [], 
+            imapEmails: [],  
             selectedAccountId: null,
             currentFolder: 'inbox',
             viewingEmail: null,
-            selectedEmailIds: new Set(), // 批次選取
-            lastImapIds: new Set() // 偵測新信用
+            selectedEmailIds: new Set(), // 這裡面儲存的必須一律是 "字串 (String)"
+            lastImapIds: new Set() 
         };
 
         try {
@@ -492,7 +492,8 @@
                     onAuthStateChanged(auth, (currentUser) => {
                         if (currentUser) {
                             user = currentUser;
-                            // 修正：移除舊版 userIdDisplay 的存取，避免 Null 錯誤
+                            const d = document.getElementById('userIdDisplay');
+                            if(d) d.textContent = user.uid.substring(0,8) + '...';
                             this.setupListeners();
                         }
                     });
@@ -500,7 +501,6 @@
                     showToast("系統登入失敗");
                 }
                 
-                // 綁定 Webmail 帳號切換
                 const wmAccSelect = document.getElementById('wmAccountSelect');
                 if (wmAccSelect) {
                     wmAccSelect.addEventListener('change', (e) => {
@@ -513,7 +513,6 @@
                 if (!user) return;
                 const uid = user.uid;
 
-                // 1. 監聽帳號
                 onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'accounts'), (snap) => {
                     state.accounts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderSettingsList();
@@ -528,13 +527,11 @@
                     lucide.createIcons();
                 }, e => console.error("Acc Listener", e));
 
-                // 2. 監聽通訊錄
                 onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'contacts'), (snap) => {
                     state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderContacts();
                 });
 
-                // 3. 監聽本地信件
                 onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'local_emails'), (snap) => {
                     state.localEmails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
@@ -827,14 +824,14 @@
                     if (!showLoadingUI) {
                         let newCount = 0;
                         newEmails.forEach(em => {
-                            if (!state.lastImapIds.has(em.id)) newCount++;
+                            if (!state.lastImapIds.has(String(em.id))) newCount++;
                         });
                         if (newCount > 0) {
                             showToast(`自動同步完成：收到 ${newCount} 封新郵件！`);
                         }
                     }
                     
-                    state.lastImapIds = new Set(newEmails.map(e => e.id));
+                    state.lastImapIds = new Set(newEmails.map(e => String(e.id)));
                     const syncEl = document.getElementById('wm-last-sync');
                     if(syncEl) syncEl.textContent = `最後同步：${new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}`;
 
@@ -846,6 +843,54 @@
                         lucide.createIcons();
                     }
                 }
+            },
+
+            // --- 修復的選取功能 ---
+            // 透過直接操作 class 來改變樣式，不重新渲染整個 List 以防畫面跳動
+            toggleEmailSelect: function(checkboxEl, emailId) {
+                // 強制轉換為字串，確保型別一致
+                const strId = String(emailId); 
+                const li = checkboxEl.closest('li');
+                
+                if(checkboxEl.checked) {
+                    state.selectedEmailIds.add(strId);
+                    li.classList.add('bg-yellow-100', 'border-yellow-500');
+                    li.classList.remove('bg-white', 'bg-[#fffdf0]', 'border-transparent', 'border-orange-400');
+                } else {
+                    state.selectedEmailIds.delete(strId);
+                    li.classList.remove('bg-yellow-100', 'border-yellow-500');
+                    
+                    // 根據已讀狀態回復原本顏色
+                    const email = this.getCurrentEmails().find(e => String(e.id) === strId);
+                    if (email && email.read) {
+                        li.classList.add('bg-white', 'border-transparent');
+                    } else {
+                        li.classList.add('bg-[#fffdf0]', 'border-orange-400');
+                    }
+                }
+                
+                // 同步檢查上方的「全選」方塊狀態
+                const currentEmailsCount = this.getCurrentEmails().length;
+                const selectAllCb = document.getElementById('selectAllCb');
+                if (selectAllCb) {
+                    selectAllCb.checked = (currentEmailsCount > 0 && state.selectedEmailIds.size === currentEmailsCount);
+                }
+            },
+
+            toggleSelectAll: function(cb) {
+                state.selectedEmailIds.clear();
+                if(cb.checked) {
+                    // 全選時也必須存為字串
+                    this.getCurrentEmails().forEach(e => state.selectedEmailIds.add(String(e.id)));
+                }
+                // 全選是全域操作，所以重新渲染
+                this.renderWebmailList();
+            },
+
+            clearSelection: function() {
+                state.selectedEmailIds.clear();
+                const selectAllCb = document.getElementById('selectAllCb');
+                if(selectAllCb) selectAllCb.checked = false;
             },
 
             renderWebmailList: function() {
@@ -876,21 +921,34 @@
                 if (emails.length === 0) {
                     listEl.classList.add('hidden');
                     if(emptyState) emptyState.classList.remove('hidden');
+                    
+                    // 沒有信的時候也要把全選方塊取消勾選
+                    const selectAllCb = document.getElementById('selectAllCb');
+                    if (selectAllCb) selectAllCb.checked = false;
                 } else {
                     listEl.classList.remove('hidden');
                     if(emptyState) emptyState.classList.add('hidden');
+                    
+                    // 根據目前的 state 更新「全選」方塊狀態
+                    const selectAllCb = document.getElementById('selectAllCb');
+                    if (selectAllCb) selectAllCb.checked = (state.selectedEmailIds.size === emails.length);
 
                     emails.forEach(email => {
+                        // 強制轉字串比對
+                        const strId = String(email.id);
+                        const isSelected = state.selectedEmailIds.has(strId);
+                        
                         const li = document.createElement('li');
-                        const isSelected = state.selectedEmailIds.has(email.id);
                         li.className = `p-4 cursor-pointer flex items-center transition border-l-4 ${isSelected ? 'bg-yellow-100 border-yellow-500' : (email.read ? 'bg-white border-transparent hover:bg-gray-50' : 'bg-[#fffdf0] border-orange-400')}`;
                         
                         const dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'});
+                        
+                        // 注意這裡將 checkbox 綁定了 toggleEmailSelect(this, ...) 並移除整行的 DOM 重新渲染
                         li.innerHTML = `
                             <div class="mr-4" onclick="event.stopPropagation()">
-                                <input type="checkbox" class="anime-checkbox" value="${email.id}" ${isSelected ? 'checked' : ''} onchange="app.toggleEmailSelect('${email.id}')">
+                                <input type="checkbox" class="anime-checkbox" value="${strId}" ${isSelected ? 'checked' : ''} onclick="app.toggleEmailSelect(this, '${strId}')">
                             </div>
-                            <div class="flex-1 min-w-0" onclick="app.previewEmail('${email.id}')">
+                            <div class="flex-1 min-w-0" onclick="app.previewEmail('${strId}')">
                                 <div class="flex justify-between items-baseline mb-1">
                                     <p class="font-bold text-gray-900 truncate pr-2 ${!email.read ? 'text-orange-600' : ''}">${email.senderName || email.recipient || '(無收件人)'}</p>
                                     <p class="text-xs font-bold text-gray-500 flex-shrink-0">${dateStr}</p>
@@ -906,7 +964,9 @@
 
             // --- 預覽與右側面板 ---
             previewEmail: function(id) {
-                const email = this.getCurrentEmails().find(e => e.id === id);
+                // 強制轉字串找信
+                const strId = String(id);
+                const email = this.getCurrentEmails().find(e => String(e.id) === strId);
                 if (!email) return;
                 state.viewingEmail = email;
 
@@ -946,24 +1006,6 @@
             },
 
             // --- 批次操作 ---
-            toggleSelectAll: function(cb) {
-                state.selectedEmailIds.clear();
-                if(cb.checked) {
-                    this.getCurrentEmails().forEach(e => state.selectedEmailIds.add(e.id));
-                }
-                this.renderWebmailList();
-            },
-            toggleEmailSelect: function(id) {
-                if(state.selectedEmailIds.has(id)) state.selectedEmailIds.delete(id);
-                else state.selectedEmailIds.add(id);
-                this.renderWebmailList();
-            },
-            clearSelection: function() {
-                state.selectedEmailIds.clear();
-                const selectAllCb = document.getElementById('selectAllCb');
-                if(selectAllCb) selectAllCb.checked = false;
-            },
-
             batchDelete: async function() {
                 if (state.selectedEmailIds.size === 0) { showToast("請先選取郵件"); return; }
                 if (!confirm(`確定要刪除選取的 ${state.selectedEmailIds.size} 封郵件嗎？`)) return;
@@ -978,10 +1020,12 @@
                             body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, uids: Array.from(state.selectedEmailIds) })
                         });
                         if (!response.ok) throw new Error("API異常");
-                        state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(e.id));
+                        // 確保用字串過濾
+                        state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(String(e.id)));
                     } catch (e) {
                         console.warn(e);
-                        state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(e.id));
+                        // 降級隱藏，也是用字串過濾
+                        state.imapEmails = state.imapEmails.filter(e => !state.selectedEmailIds.has(String(e.id)));
                     }
                 } else {
                     const batch = writeBatch(db);
@@ -996,7 +1040,7 @@
                     await batch.commit();
                 }
 
-                if (state.viewingEmail && state.selectedEmailIds.has(state.viewingEmail.id)) this.closeEmailPreview();
+                if (state.viewingEmail && state.selectedEmailIds.has(String(state.viewingEmail.id))) this.closeEmailPreview();
                 this.clearSelection();
                 this.renderWebmailList();
                 showToast("郵件已刪除");
@@ -1006,7 +1050,8 @@
                 if (state.selectedEmailIds.size === 0) return;
                 if (state.currentFolder === 'inbox') {
                     state.imapEmails.forEach(e => {
-                        if (state.selectedEmailIds.has(e.id)) e.read = true;
+                        // 確保用字串過濾
+                        if (state.selectedEmailIds.has(String(e.id))) e.read = true;
                     });
                     this.clearSelection();
                     this.renderWebmailList();
