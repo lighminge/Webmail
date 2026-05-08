@@ -99,6 +99,7 @@
             <i data-lucide="mail" class="text-orange-500 w-8 h-8 mr-2"></i>
             <h1 class="text-3xl font-bold tracking-wider text-gray-800 mt-1 hidden md:block">OmniMail</h1>
         </div>
+        <!-- 導覽按鈕區域 -->
         <div id="nav-buttons" class="flex space-x-2 md:space-x-4 hidden items-center">
             <button onclick="app.navigate('home')" class="anime-btn bg-yellow-300 px-3 md:px-4 py-1.5 flex items-center text-sm border-2 border-gray-800 shadow-[2px_2px_0px_#1f2937]">
                 <i data-lucide="home" class="w-4 h-4 mr-1"></i> 回首頁
@@ -240,6 +241,7 @@
                         </select>
                         <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
                         
+                        <!-- 群組管理按鈕 -->
                         <button onclick="app.openGroupManagerModal()" class="anime-btn bg-blue-300 px-4 py-1.5 flex items-center shrink-0">
                             <i data-lucide="layers" class="w-5 h-5 mr-1"></i> 群組管理
                         </button>
@@ -514,7 +516,8 @@
                 
                 <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                     <span class="font-bold w-20 shrink-0">收件者</span>
-                    <input type="text" id="composeTo" class="anime-input flex-1" placeholder="填寫 email 或從右方開啟通訊錄選取 ➔">
+                    <!-- 【修改】加入 onblur 自動補齊通訊錄名稱功能 -->
+                    <input type="text" id="composeTo" class="anime-input flex-1" placeholder="填寫 email (自動偵測聯絡人) 或從右方開啟通訊錄選取 ➔" onblur="app.autoCompleteContact()">
                     <button type="button" onclick="app.openContactSelector()" class="anime-btn bg-green-200 hover:bg-green-300 px-4 py-2 flex items-center shrink-0">
                         <i data-lucide="book-open" class="w-4 h-4 mr-1"></i> 📖 開啟通訊錄
                     </button>
@@ -660,7 +663,6 @@
                     state.groups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.updateContactFilters();
                     this.renderGroupList();
-                    // 強制重繪通訊錄，即時顯示最新群組名稱
                     if (state.currentView === 'contacts') {
                         this.renderContacts();
                     }
@@ -688,6 +690,16 @@
                     this.updateFolderBadges();
                     if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
                         this.renderWebmailList();
+                        
+                        // 【修復1】草稿與寄件備份有更新時，即時刷新右側預覽畫面
+                        if (state.viewingEmail && (state.currentFolder === 'drafts' || state.currentFolder === 'sent')) {
+                            const updatedEmail = state.localEmails.find(e => e.id === state.viewingEmail.id);
+                            if (updatedEmail) {
+                                this.previewEmail(updatedEmail.id);
+                            } else {
+                                this.closeEmailPreview();
+                            }
+                        }
                     }
                 });
             },
@@ -820,14 +832,13 @@
 
             openGroupManagerModal: function() {
                 document.getElementById('groupManagerModal').classList.remove('hidden');
-                this.cancelEditGroup(); // 開啟時確保是新增狀態
+                this.cancelEditGroup();
                 this.renderGroupList();
             },
             closeGroupManagerModal: function() {
                 document.getElementById('groupManagerModal').classList.add('hidden');
             },
             
-            // 將欲修改的群組帶入上方輸入框
             editGroupItem: function(id, currentName) {
                 document.getElementById('editGroupId').value = id;
                 document.getElementById('newGroupName').value = currentName;
@@ -863,7 +874,7 @@
                         await addDoc(getCol('groups'), { name, createdAt: Date.now() });
                         showToast("群組新增成功");
                     }
-                    this.cancelEditGroup(); // 儲存後恢復為新增狀態
+                    this.cancelEditGroup();
                 } catch(e) { showToast("群組儲存失敗"); }
             },
 
@@ -1074,9 +1085,10 @@
                 }
 
                 filtered.forEach(c => {
+                    // 【修復2】在選取器內把名稱與 email 綁定到 data 屬性上，方便後續組裝
                     listEl.innerHTML += `
                         <label class="flex items-center p-2 hover:bg-green-100 cursor-pointer border-b border-gray-200 transition">
-                            <input type="checkbox" class="anime-checkbox cs-checkbox mr-3" value="${escapeHTML(c.email)}">
+                            <input type="checkbox" class="anime-checkbox cs-checkbox mr-3" data-name="${escapeHTML(c.name)}" data-email="${escapeHTML(c.email)}">
                             <div class="flex-1">
                                 <p class="font-bold text-gray-800">${escapeHTML(c.name)} <span class="text-sm font-normal text-gray-500 ml-2">&lt;${escapeHTML(c.email)}&gt;</span></p>
                                 <p class="text-xs text-gray-500">${escapeHTML(c.company || '無單位')}</p>
@@ -1087,7 +1099,13 @@
             },
             confirmContactSelection: function() {
                 const checkboxes = document.querySelectorAll('.cs-checkbox:checked');
-                const selectedEmails = Array.from(checkboxes).map(cb => cb.value);
+                // 【修復2】將勾選的資料組合為 "Name <email>" 格式
+                const selectedEmails = Array.from(checkboxes).map(cb => {
+                    const name = cb.getAttribute('data-name');
+                    const email = cb.getAttribute('data-email');
+                    return `${name} <${email}>`;
+                });
+                
                 if (selectedEmails.length > 0) {
                     const toInput = document.getElementById('composeTo');
                     const currentVal = toInput.value.trim();
@@ -1095,6 +1113,29 @@
                     toInput.value = currentVal + sep + selectedEmails.join(', ');
                 }
                 this.closeContactSelector();
+            },
+            
+            // 【修復3】手動輸入 Email 時，自動補齊通訊錄名稱
+            autoCompleteContact: function() {
+                const toInput = document.getElementById('composeTo');
+                if (!toInput) return;
+                let val = toInput.value.trim();
+                if (!val) return;
+
+                const parts = val.split(',').map(p => p.trim()).filter(p => p !== '');
+                const newParts = parts.map(part => {
+                    // 如果已經是 Name <email> 格式就不處理
+                    if (part.includes('<') && part.includes('>')) return part;
+                    
+                    // 從通訊錄尋找對應的 email
+                    const contact = state.contacts.find(c => c.email.toLowerCase() === part.toLowerCase());
+                    if (contact) {
+                        return `${contact.name} <${contact.email}>`;
+                    }
+                    return part;
+                });
+
+                toInput.value = newParts.join(', ');
             },
 
             renderWmAccountSelect: function() {
@@ -1821,6 +1862,7 @@
                 lucide.createIcons();
             },
 
+            // 【修復】回信與編輯草稿載入邏輯更新
             openCompose: function(isReply = false) {
                 if (!state.selectedAccountId) { showToast("請先選擇帳號"); return; }
                 const acc = state.accounts.find(a => a.id === state.selectedAccountId);
@@ -1839,12 +1881,21 @@
                     if (state.currentFolder === 'inbox') {
                         document.getElementById('composeReplyToId').value = state.viewingEmail.id;
                     }
-                    document.getElementById('composeTo').value = state.viewingEmail.sender || state.viewingEmail.recipient;
+                    const sName = state.viewingEmail.senderName;
+                    const sEmail = state.viewingEmail.sender || state.viewingEmail.recipient;
+                    
+                    // 根據是否有名字，自動組合成 Name <email> 格式
+                    if (sName && sName !== sEmail) {
+                        document.getElementById('composeTo').value = `${sName} <${sEmail}>`;
+                    } else {
+                        document.getElementById('composeTo').value = sEmail || '';
+                    }
+
                     document.getElementById('composeSubject').value = `Re: ${state.viewingEmail.subject}`;
                     document.getElementById('composeBody').value = `\n\n--- 原始郵件 ---\n${state.viewingEmail.body}`;
                 } else if (state.currentFolder === 'drafts' && state.viewingEmail) {
                     document.getElementById('composeDraftId').value = state.viewingEmail.id;
-                    document.getElementById('composeTo').value = state.viewingEmail.recipient;
+                    document.getElementById('composeTo').value = state.viewingEmail.recipient || '';
                     document.getElementById('composeSubject').value = state.viewingEmail.subject;
                     document.getElementById('composeBody').value = state.viewingEmail.body;
                     
@@ -1883,8 +1934,15 @@
                 };
 
                 try {
-                    if (draftId) await updateDoc(getDoc('local_emails', draftId), data);
-                    else await addDoc(getCol('local_emails'), data);
+                    if (draftId) {
+                        await updateDoc(getDoc('local_emails', draftId), data);
+                        // 【修復】更新草稿時，即時更新 state 以反映在畫面上
+                        if (state.viewingEmail && state.viewingEmail.id === draftId) {
+                            state.viewingEmail = { id: draftId, ...data };
+                        }
+                    } else {
+                        await addDoc(getCol('local_emails'), data);
+                    }
                     
                     showToast("已存入草稿！");
                     this.closeCompose();
