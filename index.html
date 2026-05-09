@@ -159,7 +159,7 @@
         <div id="view-settings" class="view-hidden absolute inset-0 overflow-y-auto p-8">
             <div class="max-w-4xl mx-auto">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">Email 資料設定清單</h2>
+                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">Email 資料設定清單 <span id="settingsCount" class="text-xl text-blue-600 ml-2"></span></h2>
                     <button onclick="app.toggleSettingsForm(true)" class="anime-btn bg-yellow-300 px-4 py-2 flex items-center">
                         <i data-lucide="plus" class="w-5 h-5 mr-1"></i> 新增帳號
                     </button>
@@ -239,7 +239,7 @@
         <div id="view-contacts" class="view-hidden absolute inset-0 overflow-y-auto p-8">
             <div class="max-w-6xl mx-auto">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block shrink-0">寄件人通訊錄</h2>
+                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block shrink-0">寄件人通訊錄 <span id="contactsCount" class="text-xl text-blue-600 ml-2"></span></h2>
                     <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
                         <select id="filterCompany" onchange="app.renderContacts()" class="anime-input py-1.5 px-3 text-sm flex-1 md:flex-none">
                             <option value="">📁 所有單位</option>
@@ -889,15 +889,22 @@
 
             renderSettingsList: function() {
                 const area = document.getElementById('settingsListArea');
+                const countEl = document.getElementById('settingsCount');
                 if(!area) return;
+                
+                if (countEl) countEl.textContent = `(共 ${state.accounts.length} 筆)`;
+                
                 area.innerHTML = state.accounts.length === 0 ? '<p class="text-gray-500 font-bold p-4 text-center border-2 border-dashed border-gray-400 rounded-xl">尚無設定任何信箱</p>' : '';
                 
-                state.accounts.forEach(acc => {
+                state.accounts.forEach((acc, index) => {
                     area.innerHTML += `
                         <div class="anime-card p-4 flex justify-between items-center bg-white">
-                            <div>
-                                <h4 class="text-xl font-bold">${escapeHTML(acc.name)} <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded ml-2">每 ${acc.checkInterval||60} 秒同步</span></h4>
-                                <p class="text-gray-600">${escapeHTML(acc.email)}</p>
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-lg mr-4 shadow-[2px_2px_0px_#d1d5db] shrink-0">${index + 1}</div>
+                                <div>
+                                    <h4 class="text-xl font-bold">${escapeHTML(acc.name)} <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded ml-2">每 ${acc.checkInterval||60} 秒同步</span></h4>
+                                    <p class="text-gray-600">${escapeHTML(acc.email)}</p>
+                                </div>
                             </div>
                             <div class="flex space-x-2">
                                 <button onclick="app.toggleSettingsForm(true, '${acc.id}')" class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg border-2 border-gray-800 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
@@ -1105,6 +1112,9 @@
                     }
                     return matchTerm && matchComp && inGroup;
                 });
+                
+                const countEl = document.getElementById('contactsCount');
+                if (countEl) countEl.textContent = `(篩選結果: ${filtered.length} 筆)`;
                 
                 if (filtered.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
@@ -1689,7 +1699,7 @@
                 const attContainer = document.getElementById('pv-attachments');
                 if (email.attachments && email.attachments.length > 0) {
                     attContainer.classList.remove('hidden');
-                    attContainer.innerHTML = '<span class="font-bold text-sm text-gray-600 mr-2 flex items-center"><i data-lucide="paperclip" class="w-4 h-4 mr-1"></i> 附件：</span>';
+                    attContainer.innerHTML = `<span class="font-bold text-sm text-gray-600 mr-2 flex items-center"><i data-lucide="paperclip" class="w-4 h-4 mr-1"></i> 附件 (共 ${email.attachments.length} 件)：</span>`;
                     email.attachments.forEach(att => {
                         if (att.error) {
                             attContainer.innerHTML += `<span class="text-xs bg-red-100 text-red-800 border border-red-300 px-2 py-1 rounded">${escapeHTML(att.filename)} (過大無法下載)</span>`;
@@ -1937,8 +1947,8 @@
             handleAttachmentSelect: function(event) {
                 const files = Array.from(event.target.files);
                 files.forEach(file => {
-                    if (file.size > 3.5 * 1024 * 1024) {
-                        showToast(`⚠️ 檔案 ${file.name} 超過 3.5MB 限制，無法加入`);
+                    if (file.size > 9.5 * 1024 * 1024) {
+                        showToast(`⚠️ 檔案 ${file.name} 超過 9.5MB 限制，無法加入`);
                         return;
                     }
                     const reader = new FileReader();
@@ -1978,7 +1988,18 @@
                 const countSpan = document.getElementById('composeAttachmentCount');
                 if (countSpan) {
                     if (state.composeAttachments.length > 0) {
-                        countSpan.textContent = `(共 ${state.composeAttachments.length} 件)`;
+                        let totalSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
+                        let sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+                        
+                        if (totalSize > 7.5 * 1024 * 1024) {
+                            countSpan.textContent = `(共 ${state.composeAttachments.length} 件，總計 ${sizeMB} MB / 逼近 10MB 傳輸上限，可能會失敗)`;
+                            countSpan.classList.add('text-red-500');
+                            countSpan.classList.remove('text-blue-600');
+                        } else {
+                            countSpan.textContent = `(共 ${state.composeAttachments.length} 件，總計 ${sizeMB} MB / 上限 10MB)`;
+                            countSpan.classList.remove('text-red-500');
+                            countSpan.classList.add('text-blue-600');
+                        }
                         countSpan.classList.remove('hidden');
                     } else {
                         countSpan.classList.add('hidden');
@@ -2105,8 +2126,8 @@
                 const to = state.composeRecipients.join(', ');
 
                 let totalAttachmentSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
-                if (totalAttachmentSize > 600 * 1024) {
-                    showToast("⚠️ 草稿暫存限制：為了避免資料庫過載，草稿內附件總和不得超過 600KB，請直接寄出。");
+                if (totalAttachmentSize > 9.5 * 1024 * 1024) {
+                    showToast("⚠️ 系統限制：附件總和不得超過 10MB，請減少檔案大小後再存入草稿。");
                     return;
                 }
 
@@ -2154,8 +2175,8 @@
                 if (!to) { showToast("請輸入收件者"); return; }
                 
                 let totalAttachmentSize = state.composeAttachments.reduce((sum, att) => sum + att.size, 0);
-                if (totalAttachmentSize > 2.8 * 1024 * 1024) {
-                    showToast("⚠️ 系統限制：附件總和不得超過 2.8MB，請減少檔案大小後再寄出。");
+                if (totalAttachmentSize > 9.5 * 1024 * 1024) {
+                    showToast("⚠️ 系統限制：附件總和不得超過 10MB，請減少檔案大小後再寄出。");
                     return;
                 }
                 
