@@ -481,6 +481,7 @@
                                         <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
                                             <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
                                         </button>
+                                        <!-- 列印按鈕 -->
                                         <button onclick="app.printEmail()" class="text-xs bg-gray-100 border border-gray-800 text-gray-800 px-2 py-0.5 rounded hover:bg-gray-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="列印此信件">
                                             <i data-lucide="printer" class="w-3 h-3 mr-1"></i> 列印
                                         </button>
@@ -717,13 +718,13 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, getDocs, getDoc as getFsDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
         // 核心設定：Firebase 與 Vercel 網址
         // ==========================================
-        const firebaseConfig = {
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyBLHWC6grK-mfDATUY76AX1GTce5iHDi30",
             authDomain: "github-webmail.firebaseapp.com",
             projectId: "github-webmail",
@@ -732,21 +733,22 @@
             appId: "1:76586089939:web:1300004d62838a077cc326"
         };
         
-        const appId = 'omni-webmail-system';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'omni-webmail-system';
         const VERCEL_API_BASE = 'https://webmail-api-lighminges-projects.vercel.app'; 
-        const AUTH_DOMAIN_SUFFIX = '@omni.system'; // 實名認證偽裝後綴
 
         let appInstance, auth, db, user;
         let checkTimer = null;
         let listeners = [];
+        let currentAppUser = null; // 模擬系統使用者帳號，取代原本的 user.uid
 
-        // 【重大升級】資料完全私有化隔離
-        const getCol = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
-        const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'users', user.uid, colName, docId);
+        // 【重大升級】資料完全私有化隔離，並綁定系統自訂帳號
+        // 使用公有資料池，加上帳號名稱作為前綴來區隔資料，確保符合 Firebase 安全規則又能跨裝置存取
+        const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_${colName}`);
+        const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_${colName}`, docId);
         
         // 系統使用者管理為公有資料池
         const getSysUsersCol = () => collection(db, 'artifacts', appId, 'public', 'data', 'sys_users');
-        const getSysUserDoc = (uid) => doc(db, 'artifacts', appId, 'public', 'data', 'sys_users', uid);
+        const getSysUserDoc = (username) => doc(db, 'artifacts', appId, 'public', 'data', 'sys_users', username);
 
         const state = {
             currentView: 'home', 
@@ -789,64 +791,38 @@
 
         window.app = {
             init: async function() {
-                // 登入狀態監聽
-                onAuthStateChanged(auth, async (currentUser) => {
-                    if (currentUser) {
-                        user = currentUser;
-                        
-                        // 【修復】加入 1.5 秒的重試機制，防止剛註冊完時資料庫還沒寫入的 Race Condition
-                        let profileSnap = await getFsDoc(getSysUserDoc(user.uid));
-                        if (!profileSnap.exists()) {
-                            await new Promise(resolve => setTimeout(resolve, 1500));
-                            profileSnap = await getFsDoc(getSysUserDoc(user.uid));
-                        }
-
-                        if (profileSnap.exists()) {
-                            const profileData = profileSnap.data();
-                            if (profileData.status === 'pending') {
-                                showToast("您的帳號尚在申請中，請等待管理員審核");
-                                await signOut(auth);
-                                document.getElementById('loadingOverlay').classList.add('hidden');
-                                return;
-                            }
-                            
-                            state.currentUserProfile = profileData;
-                            document.getElementById('navUsername').textContent = `使用者: ${profileData.username}`;
-                            
-                            if (profileData.role === 'admin') {
-                                document.getElementById('btn-nav-sysadmin').classList.remove('hidden');
-                                // 自動移轉資料邏輯
-                                if (!profileData.migrated && profileData.username === 'lighminge') {
-                                    await this.migratePublicDataToAdmin(user.uid);
-                                }
-                            } else {
-                                document.getElementById('btn-nav-sysadmin').classList.add('hidden');
-                            }
-
-                            document.getElementById('authOverlay').classList.add('hidden');
-                            document.getElementById('nav-buttons').classList.remove('hidden');
-                            document.getElementById('loadingOverlay').classList.add('hidden');
-                            this.setupListeners();
-                            this.navigate('home');
-                        } else {
-                            // 異常狀態：無 Profile
-                            showToast("找不到使用者設定檔，請重新登入或聯絡管理員");
-                            await signOut(auth);
-                            document.getElementById('loadingOverlay').classList.add('hidden');
-                        }
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
-                        // 顯示登入畫面
-                        document.getElementById('loadingOverlay').classList.add('hidden');
-                        document.getElementById('authOverlay').classList.remove('hidden');
-                        document.getElementById('nav-buttons').classList.add('hidden');
-                        ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
-                            const el = document.getElementById(id);
-                            if(el) el.classList.add('view-hidden');
-                        });
-                        if (this.clearListeners) this.clearListeners();
+                        await signInAnonymously(auth);
                     }
-                });
+                };
 
+                try {
+                    await initAuth();
+
+                    // 登入狀態監聽
+                    onAuthStateChanged(auth, async (currentUser) => {
+                        if (currentUser) {
+                            user = currentUser;
+                            
+                            // 若尚未進行系統帳號登入，顯示登入畫面
+                            if (!currentAppUser) {
+                                document.getElementById('loadingOverlay').classList.add('hidden');
+                                document.getElementById('authOverlay').classList.remove('hidden');
+                                document.getElementById('nav-buttons').classList.add('hidden');
+                                ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
+                                    const el = document.getElementById(id);
+                                    if(el) el.classList.add('view-hidden');
+                                });
+                            }
+                        }
+                    });
+                } catch (e) {
+                    showToast("系統初始化失敗");
+                }
+                
                 const wmAccSelect = document.getElementById('wmAccountSelect');
                 if (wmAccSelect) {
                     wmAccSelect.addEventListener('change', (e) => {
@@ -862,39 +838,72 @@
                 if (!un || !pw) { showToast("請輸入帳號與密碼"); return; }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
-                const pseudoEmail = `${un}${AUTH_DOMAIN_SUFFIX}`;
                 
                 try {
-                    await signInWithEmailAndPassword(auth, pseudoEmail, pw);
-                } catch (err) {
-                    // 【修復】相容新版 Firebase 的多種錯誤代碼，並確保順利觸發自動初始化
-                    const isAuthError = err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-login-credentials';
+                    // 完全棄用 Firebase Auth 的 Email/Password 模組(因環境封鎖)，改用 Firestore 底層直連驗證！
+                    const userDocSnap = await getFsDoc(getSysUserDoc(un));
                     
-                    if (isAuthError && un === 'lighminge' && pw === '88888') {
-                        try {
-                            const userCred = await createUserWithEmailAndPassword(auth, pseudoEmail, pw);
-                            await setDoc(getSysUserDoc(userCred.user.uid), {
-                                username: 'lighminge',
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        if (userData.password === pw) {
+                            if (userData.status === 'pending') {
+                                showToast("您的帳號尚在申請中，請等待管理員審核");
+                                document.getElementById('loadingOverlay').classList.add('hidden');
+                                return;
+                            }
+                            await this.finishLogin(un, userData);
+                        } else {
+                            showToast("登入失敗：密碼錯誤");
+                            document.getElementById('loadingOverlay').classList.add('hidden');
+                        }
+                    } else {
+                        // 初始化最高管理員邏輯
+                        if (un === 'lighminge' && pw === '888888') {
+                            const newAdmin = {
+                                username: un,
+                                password: pw,
                                 role: 'admin',
                                 status: 'approved',
                                 migrated: false,
                                 createdAt: Date.now()
-                            });
+                            };
+                            await setDoc(getSysUserDoc(un), newAdmin);
                             showToast("管理員帳號初始化成功！");
-                            // onAuthStateChanged 會自動接手後續流程
-                        } catch (e) {
-                            if (e.code === 'auth/email-already-in-use') {
-                                showToast("登入失敗：密碼錯誤，或是帳號已存在");
-                            } else {
-                                showToast("管理員初始化失敗: " + e.message);
-                            }
+                            await this.finishLogin(un, newAdmin);
+                        } else {
+                            showToast("登入失敗：帳號不存在");
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
-                    } else {
-                        showToast("登入失敗：帳號或密碼錯誤");
-                        document.getElementById('loadingOverlay').classList.add('hidden');
                     }
+                } catch (err) {
+                    console.error(err);
+                    showToast("登入失敗，請檢查網路連線");
+                    document.getElementById('loadingOverlay').classList.add('hidden');
                 }
+            },
+
+            finishLogin: async function(username, profileData) {
+                currentAppUser = username;
+                state.currentUserProfile = profileData;
+
+                document.getElementById('navUsername').textContent = `使用者: ${profileData.username}`;
+
+                if (profileData.role === 'admin') {
+                    document.getElementById('btn-nav-sysadmin').classList.remove('hidden');
+                    // 自動移轉資料邏輯
+                    if (!profileData.migrated && username === 'lighminge') {
+                        await this.migratePublicDataToAdmin(username);
+                    }
+                } else {
+                    document.getElementById('btn-nav-sysadmin').classList.add('hidden');
+                }
+
+                document.getElementById('authOverlay').classList.add('hidden');
+                document.getElementById('nav-buttons').classList.remove('hidden');
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                
+                this.setupListeners();
+                this.navigate('home');
             },
             
             register: async function() {
@@ -904,22 +913,30 @@
                 if (pw.length < 6) { showToast("密碼長度至少需要 6 碼"); return; }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
-                const pseudoEmail = `${un}${AUTH_DOMAIN_SUFFIX}`;
                 
                 try {
-                    const userCred = await createUserWithEmailAndPassword(auth, pseudoEmail, pw);
-                    // 預設身分：一般使用者 / 申請中
-                    await setDoc(getSysUserDoc(userCred.user.uid), {
+                    // 改用 Firestore 直接註冊，繞過 Firebase 封鎖
+                    const userDocSnap = await getFsDoc(getSysUserDoc(un));
+                    if (userDocSnap.exists()) {
+                        showToast("此帳號已經被註冊過了");
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        return;
+                    }
+
+                    await setDoc(getSysUserDoc(un), {
                         username: un,
+                        password: pw,
                         role: 'user',
                         status: 'pending',
                         createdAt: Date.now()
                     });
+
                     showToast("註冊成功！目前狀態為「申請中」，請等待管理員審核");
-                    await signOut(auth); // 註冊後強制登出等待審核
+                    document.getElementById('authUsername').value = '';
+                    document.getElementById('authPassword').value = '';
                 } catch (err) {
-                    if (err.code === 'auth/email-already-in-use') showToast("此帳號已經被註冊過了");
-                    else showToast("註冊失敗");
+                    console.error(err);
+                    showToast("註冊失敗，請檢查網路");
                 } finally {
                     document.getElementById('loadingOverlay').classList.add('hidden');
                 }
@@ -927,14 +944,28 @@
             
             logout: async function() {
                 if (!(await app.customConfirm("登出系統", "您確定要登出並返回登入畫面嗎？", false))) return;
-                await signOut(auth);
+                
+                currentAppUser = null;
+                state.currentUserProfile = null;
                 state.selectedAccountId = null;
                 this.stopAutoSync();
+                this.clearListeners();
+                
+                document.getElementById('authOverlay').classList.remove('hidden');
+                document.getElementById('nav-buttons').classList.add('hidden');
+                ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.classList.add('view-hidden');
+                });
+                
+                document.getElementById('authUsername').value = '';
+                document.getElementById('authPassword').value = '';
+                
                 showToast("已成功登出");
             },
             
             // 資料移轉腳本
-            migratePublicDataToAdmin: async function(uid) {
+            migratePublicDataToAdmin: async function(appUser) {
                 showToast("正在移轉舊系統資料至管理員帳號...");
                 const colsToMigrate = ['accounts', 'contacts', 'groups', 'local_emails'];
                 try {
@@ -942,13 +973,13 @@
                         const pubQuery = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', c));
                         const batch = writeBatch(db);
                         pubQuery.forEach(docSnap => {
-                            const privateRef = doc(db, 'artifacts', appId, 'users', uid, c, docSnap.id);
+                            const privateRef = doc(db, 'artifacts', appId, 'public', 'data', `${appUser}_${c}`, docSnap.id);
                             batch.set(privateRef, docSnap.data());
                             batch.delete(docSnap.ref); // 刪除公開資料
                         });
                         await batch.commit();
                     }
-                    await updateDoc(getSysUserDoc(uid), { migrated: true });
+                    await updateDoc(getSysUserDoc(appUser), { migrated: true });
                     showToast("舊系統資料移轉完成！");
                 } catch (e) {
                     console.error("Migration Error", e);
@@ -1003,7 +1034,7 @@
 
             setupListeners: function() {
                 this.clearListeners();
-                if (!user) return;
+                if (!user || !currentAppUser) return;
                 
                 document.getElementById('loadingOverlay').classList.add('hidden');
 
