@@ -553,7 +553,7 @@
                 
                 <div class="border-2 border-dashed border-gray-400 p-4 rounded-xl bg-white shrink-0 mt-2">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="font-bold text-gray-700 flex items-center"><i data-lucide="paperclip" class="w-4 h-4 mr-1"></i> 郵件附件</span>
+                        <span class="font-bold text-gray-700 flex items-center"><i data-lucide="paperclip" class="w-4 h-4 mr-1"></i> 郵件附件 <span id="composeAttachmentCount" class="ml-2 text-sm text-blue-600 hidden"></span></span>
                         <button type="button" onclick="document.getElementById('composeFileInput').click()" class="anime-btn bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200">
                             + 選取檔案
                         </button>
@@ -1237,7 +1237,12 @@
                     const acc = state.accounts.find(a => a.id === accId);
                     this.startAutoSync(acc.checkInterval || 60);
                     if(state.currentView === 'webmail' && state.currentFolder === 'inbox') {
-                        this.fetchInboxCount(false);
+                        const hasInboxEmails = state.imapEmails.some(e => e.accountId === state.selectedAccountId);
+                        if (hasInboxEmails) {
+                            this.renderWebmailList();
+                        } else {
+                            this.fetchInboxCount(false);
+                        }
                     } else {
                         this.renderWebmailList();
                     }
@@ -1270,8 +1275,16 @@
                 
                 this.renderPaginationDropdown();
 
-                if (folder === 'inbox') this.fetchInboxCount(false);
-                else this.renderWebmailList();
+                if (folder === 'inbox') {
+                    const hasInboxEmails = state.imapEmails.some(e => e.accountId === state.selectedAccountId);
+                    if (hasInboxEmails) {
+                        this.renderWebmailList();
+                    } else {
+                        this.fetchInboxCount(false);
+                    }
+                } else {
+                    this.renderWebmailList();
+                }
             },
 
             startAutoSync: function(seconds) {
@@ -1961,6 +1974,16 @@
                     `;
                 });
                 lucide.createIcons();
+                
+                const countSpan = document.getElementById('composeAttachmentCount');
+                if (countSpan) {
+                    if (state.composeAttachments.length > 0) {
+                        countSpan.textContent = `(共 ${state.composeAttachments.length} 件)`;
+                        countSpan.classList.remove('hidden');
+                    } else {
+                        countSpan.classList.add('hidden');
+                    }
+                }
             },
 
             // === 撰寫郵件：收件者標籤管理 ===
