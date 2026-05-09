@@ -249,6 +249,7 @@
                         </select>
                         <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
                         
+                        <!-- 群組管理按鈕 -->
                         <button onclick="app.openGroupManagerModal()" class="anime-btn bg-blue-300 px-4 py-1.5 flex items-center shrink-0">
                             <i data-lucide="layers" class="w-5 h-5 mr-1"></i> 群組管理
                         </button>
@@ -316,8 +317,14 @@
 
             <section class="w-[400px] bg-white border-r-4 border-gray-800 flex flex-col z-0 shrink-0">
                 <div class="h-14 border-b-2 border-gray-800 flex items-center justify-between px-3 bg-gray-50 flex-shrink-0">
-                    <div class="flex items-center space-x-3">
-                        <input type="checkbox" class="anime-checkbox" id="selectAllCb" onclick="app.toggleSelectAll(this)">
+                    <div class="flex items-center space-x-2 shrink-0">
+                        <input type="checkbox" class="anime-checkbox" id="selectAllCb" onclick="app.toggleSelectAll(this)" title="全選本頁">
+                        <button onclick="app.selectUnreadEmails()" class="p-1.5 hover:bg-gray-200 rounded text-orange-600 transition flex items-center justify-center" title="全選本頁未讀信件">
+                            <i data-lucide="check-square" class="w-5 h-5"></i>
+                        </button>
+                        
+                        <div class="w-px bg-gray-300 h-6 mx-1"></div>
+                        
                         <button onclick="app.batchDelete()" class="p-1.5 hover:bg-gray-200 rounded text-red-600 transition" title="刪除選取項目 (同步至伺服器)">
                             <i data-lucide="trash" class="w-5 h-5"></i>
                         </button>
@@ -342,7 +349,12 @@
                         <span class="text-xs">總計: <span id="wm-total-count">0</span> | 未讀: <span id="wm-unread-count" class="text-red-500">0</span></span>
                     </div>
                     
-                    <div class="flex items-center gap-2 flex-wrap">
+                    <div class="flex items-center gap-2 flex-wrap mt-1">
+                        <select id="wm-filter-select" class="anime-input text-xs py-1 px-1.5 bg-white cursor-pointer" onchange="app.onFilterChange()">
+                            <option value="all">所有信件</option>
+                            <option value="unread">僅未讀信件</option>
+                        </select>
+                        
                         <div id="inbox-pagination-wrapper" class="flex items-center gap-1 hidden">
                             <select id="inbox-page-select" class="anime-input text-xs py-1 px-1 bg-white cursor-pointer"></select>
                             <button onclick="app.fetchCurrentPage()" class="bg-blue-600 text-white border-2 border-gray-800 rounded px-2 py-1 text-xs hover:bg-blue-700 shadow-[1px_1px_0px_#1f2937] transition-transform active:translate-y-[1px] active:shadow-none font-bold shrink-0">讀取</button>
@@ -780,7 +792,7 @@
                 if(activeView) activeView.classList.remove('view-hidden');
                 
                 if (viewId === 'webmail' && state.selectedAccountId) {
-                    if(state.currentFolder === 'inbox') this.fetchInboxCount();
+                    if(state.currentFolder === 'inbox') this.fetchInboxCount(false);
                     else this.renderWebmailList();
                 }
                 lucide.createIcons();
@@ -1122,6 +1134,36 @@
                 lucide.createIcons();
             },
 
+            // --- 選取本頁未讀信件 ---
+            selectUnreadEmails: function() {
+                const emails = this.getCurrentEmails();
+                let added = false;
+                emails.forEach(e => {
+                    if (!e.read) {
+                        state.selectedEmailIds.add(String(e.id));
+                        added = true;
+                    }
+                });
+                if (added) {
+                    this.renderWebmailList();
+                    showToast("已選取所有未讀信件");
+                } else {
+                    showToast("此頁沒有未讀信件");
+                }
+            },
+
+            // --- 當改變過濾器時觸發重新撈取 ---
+            onFilterChange: function() {
+                this.clearSelection();
+                if (state.currentFolder === 'inbox') {
+                    const pageSelect = document.getElementById('inbox-page-select');
+                    if (pageSelect) pageSelect.value = "1";
+                    this.fetchInboxCount(false);
+                } else {
+                    this.renderWebmailList();
+                }
+            },
+
             openContactSelector: function() {
                 document.getElementById('contactSelectorModal').classList.remove('hidden');
                 this.renderContactSelector();
@@ -1195,7 +1237,7 @@
                     const acc = state.accounts.find(a => a.id === accId);
                     this.startAutoSync(acc.checkInterval || 60);
                     if(state.currentView === 'webmail' && state.currentFolder === 'inbox') {
-                        this.fetchInboxCount();
+                        this.fetchInboxCount(false);
                     } else {
                         this.renderWebmailList();
                     }
@@ -1228,7 +1270,7 @@
                 
                 this.renderPaginationDropdown();
 
-                if (folder === 'inbox') this.fetchInboxCount();
+                if (folder === 'inbox') this.fetchInboxCount(false);
                 else this.renderWebmailList();
             },
 
@@ -1251,11 +1293,19 @@
 
             getCurrentEmails: function() {
                 if (!state.selectedAccountId) return [];
+                let emails = [];
                 if (state.currentFolder === 'inbox') {
-                    return state.imapEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox');
+                    emails = state.imapEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === 'inbox');
                 } else {
-                    return state.localEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === state.currentFolder);
+                    emails = state.localEmails.filter(e => e.accountId === state.selectedAccountId && e.folder === state.currentFolder);
                 }
+                
+                const filterVal = document.getElementById('wm-filter-select')?.value;
+                if (filterVal === 'unread' && state.currentFolder !== 'inbox') {
+                    emails = emails.filter(e => !e.read);
+                }
+                
+                return emails;
             },
             
             updateFolderBadges: function() {
@@ -1315,11 +1365,13 @@
                 const activeAcc = state.accounts.find(a => a.id === state.selectedAccountId);
                 if (!activeAcc) return;
 
+                const filterType = document.getElementById('wm-filter-select')?.value || 'all';
+
                 try {
                     const res = await fetch(VERCEL_API_BASE + '/api/emails/count', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap })
+                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, filter: filterType })
                     });
                     
                     if (res.ok) {
@@ -1351,7 +1403,7 @@
                                     this.fetchRealEmails(1);
                                 } else {
                                     const listEl = document.getElementById('wm-email-list');
-                                    listEl.innerHTML = `<li class="p-8 text-center text-blue-700 bg-blue-50 font-bold border-2 border-dashed border-blue-300 m-4 rounded-xl"><i data-lucide="info" class="w-8 h-8 mx-auto mb-2 text-blue-500"></i>您的信箱共有 ${newTotal} 封郵件。<br>為了加快速度，請從上方選單選擇頁數，然後點擊「讀取」按鈕來載入。</li>`;
+                                    listEl.innerHTML = `<li class="p-8 text-center text-blue-700 bg-blue-50 font-bold border-2 border-dashed border-blue-300 m-4 rounded-xl"><i data-lucide="info" class="w-8 h-8 mx-auto mb-2 text-blue-500"></i>您的信箱符合條件的有 ${newTotal} 封。<br>為了加快速度，請從上方選單選擇頁數，然後點擊「讀取」按鈕來載入。</li>`;
                                     listEl.classList.remove('hidden');
                                     document.getElementById('wm-empty-state').classList.add('hidden');
                                     lucide.createIcons();
@@ -1379,8 +1431,9 @@
                     return;
                 }
                 
-                const listEl = document.getElementById('wm-email-list');
+                const filterType = document.getElementById('wm-filter-select')?.value || 'all';
 
+                const listEl = document.getElementById('wm-email-list');
                 listEl.innerHTML = `<li class="p-8 text-center text-gray-500 font-bold"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500"></i>正在從伺服器下載第 ${page} 頁的郵件...</li>`;
                 listEl.classList.remove('hidden');
                 document.getElementById('wm-empty-state').classList.add('hidden');
@@ -1390,7 +1443,7 @@
                     const res = await fetch(VERCEL_API_BASE + '/api/emails', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, page: page, limit: 30 })
+                        body: JSON.stringify({ user: activeAcc.email, pass: activeAcc.password, imapHost: activeAcc.imap, page: page, limit: 30, filter: filterType })
                     });
                     
                     if (!res.ok) throw new Error("伺服器連線異常");
@@ -1483,7 +1536,7 @@
                     listEl.classList.add('hidden');
                     if(emptyState) {
                         emptyState.classList.remove('hidden');
-                        document.getElementById('wm-empty-text').textContent = state.currentFolder === 'inbox' ? "信箱內目前沒有郵件" : "沒有郵件";
+                        document.getElementById('wm-empty-text').textContent = state.currentFolder === 'inbox' ? "信箱內目前沒有符合的郵件" : "沒有郵件";
                     }
                     const selectAllCb = document.getElementById('selectAllCb');
                     if (selectAllCb) selectAllCb.checked = false;
@@ -1518,7 +1571,7 @@
                         
                         let dateStr = '--/--/--';
                         if (email.timestamp && !isNaN(email.timestamp)) {
-                            dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
+                            dateStr = new Date(email.timestamp).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
                         }
                         
                         const senderClass = email.read ? 'text-gray-500 font-bold' : 'text-gray-900 font-black text-lg';
