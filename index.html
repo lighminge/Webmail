@@ -84,7 +84,6 @@
         }
         .view-hidden { display: none !important; }
         
-        /* 為了讓可編輯 div 顯示 placeholder */
         [contenteditable=true]:empty:before {
             content: attr(placeholder);
             color: #9ca3af;
@@ -101,6 +100,36 @@
         <h2 class="text-2xl font-bold">系統載入中...</h2>
     </div>
 
+    <!-- 登入與註冊介面 -->
+    <div id="authOverlay" class="fixed inset-0 bg-[#fdf6e3] z-[100] flex flex-col items-center justify-center hidden">
+        <div class="anime-card bg-white p-8 w-full max-w-md">
+            <div class="flex justify-center mb-6 text-orange-500">
+                <i data-lucide="mail" class="w-16 h-16 mr-2"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-center mb-6 text-gray-800" id="authTitle">OmniMail 系統登入</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-bold mb-1 text-gray-700">使用者帳號</label>
+                    <input type="text" id="authUsername" class="anime-input w-full text-lg" placeholder="請輸入您的帳號">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1 text-gray-700">密碼</label>
+                    <input type="password" id="authPassword" class="anime-input w-full text-lg" placeholder="請輸入密碼">
+                </div>
+                
+                <div class="flex flex-col space-y-3 pt-4">
+                    <button id="btnLogin" onclick="app.login()" class="anime-btn bg-orange-400 hover:bg-orange-500 text-white w-full py-3 text-lg flex items-center justify-center">
+                        <i data-lucide="log-in" class="w-5 h-5 mr-2"></i> 登入系統
+                    </button>
+                    <button id="btnRegister" onclick="app.register()" class="anime-btn bg-blue-300 hover:bg-blue-400 text-gray-900 w-full py-3 text-lg flex items-center justify-center">
+                        <i data-lucide="user-plus" class="w-5 h-5 mr-2"></i> 註冊新帳號
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 導覽列 -->
     <header class="h-16 bg-white border-b-4 border-gray-800 flex items-center justify-between px-6 flex-shrink-0 z-10 relative">
         <div class="flex items-center cursor-pointer" onclick="app.navigate('home')">
@@ -113,6 +142,7 @@
                 <i data-lucide="home" class="w-4 h-4 mr-1"></i> 回首頁
             </button>
             <div class="w-px bg-gray-400 h-6 mx-1 md:mx-2"></div>
+            
             <button onclick="app.navigate('settings')" class="anime-btn bg-pink-200 px-3 md:px-4 py-1.5 flex items-center text-sm">
                 <i data-lucide="settings" class="w-4 h-4 mr-1 hidden md:inline"></i> 設定
             </button>
@@ -122,6 +152,20 @@
             <button onclick="app.navigate('webmail')" class="anime-btn bg-blue-200 px-3 md:px-4 py-1.5 flex items-center text-sm">
                 <i data-lucide="inbox" class="w-4 h-4 mr-1 hidden md:inline"></i> 郵件
             </button>
+            
+            <!-- 管理員專屬：系統使用者管理 -->
+            <button id="btn-nav-sysadmin" onclick="app.navigate('sysadmin')" class="anime-btn bg-purple-300 px-3 md:px-4 py-1.5 flex items-center text-sm hidden">
+                <i data-lucide="shield" class="w-4 h-4 mr-1 hidden md:inline"></i> 系統管理
+            </button>
+
+            <div class="w-px bg-gray-400 h-6 mx-1 md:mx-2"></div>
+            <!-- 登出與使用者顯示 -->
+            <div class="flex items-center space-x-3 bg-gray-100 px-3 py-1 rounded-full border-2 border-gray-800">
+                <span id="navUsername" class="font-bold text-sm text-gray-800 hidden md:block"></span>
+                <button onclick="app.logout()" class="text-red-600 hover:text-red-800 font-bold text-sm flex items-center">
+                    <i data-lucide="log-out" class="w-4 h-4 mr-1"></i> 登出
+                </button>
+            </div>
         </div>
     </header>
 
@@ -129,7 +173,7 @@
 
         <!-- ================= VIEW: HOME ================= -->
         <div id="view-home" class="absolute inset-0 overflow-y-auto p-8 flex flex-col items-center justify-center">
-            <h2 class="text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎使用！所有資料將跨裝置共享</h2>
+            <h2 class="text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎使用！您的資料完全獨立加密存放</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
                 <div onclick="app.navigate('settings')" class="anime-card bg-pink-50 p-8 flex flex-col items-center cursor-pointer hover:bg-pink-100 text-center">
                     <div class="w-24 h-24 bg-pink-200 rounded-full border-4 border-gray-800 flex items-center justify-center mb-6">
@@ -151,6 +195,37 @@
                     </div>
                     <h3 class="text-2xl font-bold mb-2">Webmail 作業</h3>
                     <p class="text-gray-600">收發信件、附加檔案、同步刪除、與草稿管理。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VIEW: SYSTEM ADMIN ================= -->
+        <div id="view-sysadmin" class="view-hidden absolute inset-0 overflow-y-auto p-8">
+            <div class="max-w-6xl mx-auto">
+                <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block mb-6">系統使用者管理</h2>
+                
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <!-- 申請中列表 -->
+                    <div>
+                        <div class="bg-yellow-100 border-2 border-gray-800 rounded-t-xl px-4 py-2 flex justify-between items-center font-bold">
+                            <span class="text-lg">⏳ 申請中待審核</span>
+                            <span id="sysCountPending" class="bg-white px-2 py-0.5 rounded text-sm shadow-[1px_1px_0px_#1f2937]">0 人</span>
+                        </div>
+                        <div class="bg-white border-x-2 border-b-2 border-gray-800 rounded-b-xl p-4 min-h-[300px] overflow-y-auto">
+                            <ul id="sysListPending" class="divide-y divide-gray-200"></ul>
+                        </div>
+                    </div>
+                    
+                    <!-- 已確認列表 -->
+                    <div>
+                        <div class="bg-green-100 border-2 border-gray-800 rounded-t-xl px-4 py-2 flex justify-between items-center font-bold">
+                            <span class="text-lg">✅ 已確認使用者</span>
+                            <span id="sysCountApproved" class="bg-white px-2 py-0.5 rounded text-sm shadow-[1px_1px_0px_#1f2937]">0 人</span>
+                        </div>
+                        <div class="bg-white border-x-2 border-b-2 border-gray-800 rounded-b-xl p-4 min-h-[300px] overflow-y-auto">
+                            <ul id="sysListApproved" class="divide-y divide-gray-200"></ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -249,7 +324,6 @@
                         </select>
                         <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
                         
-                        <!-- 群組管理按鈕 -->
                         <button onclick="app.openGroupManagerModal()" class="anime-btn bg-blue-300 px-4 py-1.5 flex items-center shrink-0">
                             <i data-lucide="layers" class="w-5 h-5 mr-1"></i> 群組管理
                         </button>
@@ -407,7 +481,6 @@
                                         <button onclick="app.deleteViewingEmail()" class="text-xs bg-red-100 border border-red-800 text-red-800 px-2 py-0.5 rounded hover:bg-red-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="刪除此信件">
                                             <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> 刪除
                                         </button>
-                                        <!-- 列印按鈕 -->
                                         <button onclick="app.printEmail()" class="text-xs bg-gray-100 border border-gray-800 text-gray-800 px-2 py-0.5 rounded hover:bg-gray-200 flex items-center shadow-[2px_2px_0px_#1f2937] transition-transform active:translate-y-[2px] active:shadow-none" title="列印此信件">
                                             <i data-lucide="printer" class="w-3 h-3 mr-1"></i> 列印
                                         </button>
@@ -429,6 +502,42 @@
         </div>
 
     </main>
+
+    <!-- Modal: 管理員 - 編輯使用者權限 -->
+    <div id="sysEditModal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white p-6 w-full max-w-md">
+            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2">管理使用者權限</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="sysEditUid">
+                <div>
+                    <label class="block font-bold mb-1">使用者帳號</label>
+                    <input type="text" id="sysEditUsername" class="anime-input w-full bg-gray-100 cursor-not-allowed" readonly>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">系統權限</label>
+                    <div class="bg-blue-50 p-2 rounded border border-blue-300 text-sm mb-2 font-bold text-blue-800">
+                        📍 系統管理者：本系統的最高權限，可處理所有的系統工作<br>
+                        📍 一般使用者：無法進入系統使用者管理，其餘功能皆可使用
+                    </div>
+                    <select id="sysEditRole" class="anime-input w-full cursor-pointer">
+                        <option value="user">一般使用者 (User)</option>
+                        <option value="admin">系統管理者 (Admin)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">帳號狀態</label>
+                    <select id="sysEditStatus" class="anime-input w-full cursor-pointer">
+                        <option value="pending">申請中 (Pending)</option>
+                        <option value="approved">已確認放行 (Approved)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                <button type="button" onclick="app.closeSysEditModal()" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
+                <button type="button" onclick="app.saveSysUser()" class="anime-btn bg-green-400 text-white px-6 py-2">儲存修改</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal: 群組獨立管理 -->
     <div id="groupManagerModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
@@ -503,7 +612,13 @@
                 <select id="csFilterGroup" onchange="app.renderContactSelector()" class="anime-input flex-1 text-sm py-1.5 px-2">
                     <option value="">🏷️ 所有群組</option>
                 </select>
+                <div class="flex space-x-2 w-full md:w-auto">
+                    <button onclick="app.toggleAllContactsInSelector(true)" class="anime-btn bg-blue-200 px-3 py-1.5 text-sm whitespace-nowrap flex-1 md:flex-none">全選</button>
+                    <button onclick="app.toggleAllContactsInSelector(false)" class="anime-btn bg-gray-200 px-3 py-1.5 text-sm whitespace-nowrap flex-1 md:flex-none">全取消</button>
+                </div>
             </div>
+            
+            <div class="mb-2 text-sm font-bold text-gray-700">目前已勾選：<span id="csSelectedCount" class="text-blue-600 text-lg">0</span> 位</div>
             
             <div class="flex-1 overflow-y-auto border-2 border-gray-300 rounded-lg p-2 bg-gray-50 mb-4">
                 <ul id="csContactList" class="space-y-1">
@@ -531,7 +646,6 @@
                 <input type="hidden" id="composeDraftId">
                 <input type="hidden" id="composeReplyToId">
                 
-                <!-- 標籤化收件者輸入框 -->
                 <div class="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-2">
                     <span class="font-bold w-20 shrink-0 mt-2">收件者</span>
                     <div class="anime-input flex-1 flex flex-wrap gap-1 p-1.5 items-center cursor-text min-h-[42px] bg-white border-2 border-[var(--comic-border)] rounded-lg shadow-[2px_2px_0px_#d1d5db]" onclick="document.getElementById('composeToInput').focus()">
@@ -548,7 +662,6 @@
                     <input type="text" id="composeSubject" class="anime-input flex-1" placeholder="請輸入主旨">
                 </div>
                 
-                <!-- 富文本編輯區域 -->
                 <div id="composeBody" contenteditable="true" class="anime-input flex-1 w-full overflow-y-auto p-4 text-lg bg-white" placeholder="撰寫您的郵件內容..."></div>
                 
                 <div class="border-2 border-dashed border-gray-400 p-4 rounded-xl bg-white shrink-0 mt-2">
@@ -604,8 +717,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, getDocs, getDoc as getFsDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
         // 核心設定：Firebase 與 Vercel 網址
@@ -621,16 +734,24 @@
         
         const appId = 'omni-webmail-system';
         const VERCEL_API_BASE = 'https://webmail-api-lighminges-projects.vercel.app'; 
+        const AUTH_DOMAIN_SUFFIX = '@omni.system'; // 實名認證偽裝後綴
 
         let appInstance, auth, db, user;
         let checkTimer = null;
+        let listeners = [];
 
-        // 封裝公共資料節點
-        const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
-        const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
+        // 【重大升級】資料完全私有化隔離
+        const getCol = (colName) => collection(db, 'artifacts', appId, 'users', user.uid, colName);
+        const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'users', user.uid, colName, docId);
+        
+        // 系統使用者管理為公有資料池
+        const getSysUsersCol = () => collection(db, 'artifacts', appId, 'public', 'data', 'sys_users');
+        const getSysUserDoc = (uid) => doc(db, 'artifacts', appId, 'public', 'data', 'sys_users', uid);
 
         const state = {
             currentView: 'home', 
+            currentUserProfile: null,
+            sysUsers: [],
             accounts: [],
             contacts: [],
             groups: [], 
@@ -668,29 +789,153 @@
 
         window.app = {
             init: async function() {
-                try {
-                    await signInAnonymously(auth);
+                // 登入狀態監聽
+                onAuthStateChanged(auth, async (currentUser) => {
+                    if (currentUser) {
+                        user = currentUser;
+                        
+                        // 驗證是否在 sys_users 中，且狀態為 approved
+                        const profileSnap = await getFsDoc(getSysUserDoc(user.uid));
+                        if (profileSnap.exists()) {
+                            const profileData = profileSnap.data();
+                            if (profileData.status === 'pending') {
+                                showToast("您的帳號尚在申請中，請等待管理員審核");
+                                await signOut(auth);
+                                return;
+                            }
+                            
+                            state.currentUserProfile = profileData;
+                            document.getElementById('navUsername').textContent = `使用者: ${profileData.username}`;
+                            
+                            if (profileData.role === 'admin') {
+                                document.getElementById('btn-nav-sysadmin').classList.remove('hidden');
+                                // 自動移轉資料邏輯
+                                if (!profileData.migrated && profileData.username === 'lighminge') {
+                                    await this.migratePublicDataToAdmin(user.uid);
+                                }
+                            } else {
+                                document.getElementById('btn-nav-sysadmin').classList.add('hidden');
+                            }
 
-                    onAuthStateChanged(auth, (currentUser) => {
-                        if (currentUser) {
-                            user = currentUser;
+                            document.getElementById('authOverlay').classList.add('hidden');
                             document.getElementById('nav-buttons').classList.remove('hidden');
-                            this.navigate('home');
                             this.setupListeners();
-                            document.getElementById('loadingOverlay').classList.add('hidden');
+                            this.navigate('home');
                         } else {
-                            signInAnonymously(auth);
+                            // 異常狀態：無 Profile
+                            await signOut(auth);
                         }
-                    });
-                } catch (e) {
-                    showToast("系統初始化失敗");
-                }
-                
+                    } else {
+                        // 顯示登入畫面
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        document.getElementById('authOverlay').classList.remove('hidden');
+                        document.getElementById('nav-buttons').classList.add('hidden');
+                        ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if(el) el.classList.add('view-hidden');
+                        });
+                        this.clearListeners();
+                    }
+                });
+
                 const wmAccSelect = document.getElementById('wmAccountSelect');
                 if (wmAccSelect) {
                     wmAccSelect.addEventListener('change', (e) => {
                         this.selectAccount(e.target.value);
                     });
+                }
+            },
+            
+            // ================= 帳號登入系統 =================
+            login: async function() {
+                const un = document.getElementById('authUsername').value.trim();
+                const pw = document.getElementById('authPassword').value;
+                if (!un || !pw) { showToast("請輸入帳號與密碼"); return; }
+                
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                const pseudoEmail = `${un}${AUTH_DOMAIN_SUFFIX}`;
+                
+                try {
+                    await signInWithEmailAndPassword(auth, pseudoEmail, pw);
+                } catch (err) {
+                    // 自動初始化管理員邏輯 (lighminge / 88888)
+                    if ((err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') && un === 'lighminge' && pw === '88888') {
+                        try {
+                            const userCred = await createUserWithEmailAndPassword(auth, pseudoEmail, pw);
+                            await setDoc(getSysUserDoc(userCred.user.uid), {
+                                username: 'lighminge',
+                                role: 'admin',
+                                status: 'approved',
+                                migrated: false,
+                                createdAt: Date.now()
+                            });
+                            // Login will proceed via onAuthStateChanged
+                        } catch (e) {
+                            showToast("管理員初始化失敗");
+                            document.getElementById('loadingOverlay').classList.add('hidden');
+                        }
+                    } else {
+                        showToast("登入失敗：帳號或密碼錯誤");
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                    }
+                }
+            },
+            
+            register: async function() {
+                const un = document.getElementById('authUsername').value.trim();
+                const pw = document.getElementById('authPassword').value;
+                if (!un || !pw) { showToast("請輸入帳號與密碼以註冊"); return; }
+                if (pw.length < 6) { showToast("密碼長度至少需要 6 碼"); return; }
+                
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                const pseudoEmail = `${un}${AUTH_DOMAIN_SUFFIX}`;
+                
+                try {
+                    const userCred = await createUserWithEmailAndPassword(auth, pseudoEmail, pw);
+                    // 預設身分：一般使用者 / 申請中
+                    await setDoc(getSysUserDoc(userCred.user.uid), {
+                        username: un,
+                        role: 'user',
+                        status: 'pending',
+                        createdAt: Date.now()
+                    });
+                    showToast("註冊成功！目前狀態為「申請中」，請等待管理員審核");
+                    await signOut(auth); // 註冊後強制登出等待審核
+                } catch (err) {
+                    if (err.code === 'auth/email-already-in-use') showToast("此帳號已經被註冊過了");
+                    else showToast("註冊失敗");
+                } finally {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                }
+            },
+            
+            logout: async function() {
+                if (!(await app.customConfirm("登出系統", "您確定要登出並返回登入畫面嗎？", false))) return;
+                await signOut(auth);
+                state.selectedAccountId = null;
+                this.stopAutoSync();
+                showToast("已成功登出");
+            },
+            
+            // 資料移轉腳本
+            migratePublicDataToAdmin: async function(uid) {
+                showToast("正在移轉舊系統資料至管理員帳號...");
+                const colsToMigrate = ['accounts', 'contacts', 'groups', 'local_emails'];
+                try {
+                    for (let c of colsToMigrate) {
+                        const pubQuery = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', c));
+                        const batch = writeBatch(db);
+                        pubQuery.forEach(docSnap => {
+                            const privateRef = doc(db, 'artifacts', appId, 'users', uid, c, docSnap.id);
+                            batch.set(privateRef, docSnap.data());
+                            batch.delete(docSnap.ref); // 刪除公開資料
+                        });
+                        await batch.commit();
+                    }
+                    await updateDoc(getSysUserDoc(uid), { migrated: true });
+                    showToast("舊系統資料移轉完成！");
+                } catch (e) {
+                    console.error("Migration Error", e);
                 }
             },
 
@@ -735,10 +980,27 @@
                 });
             },
 
-            setupListeners: function() {
-                if (!user) return;
+            clearListeners: function() {
+                listeners.forEach(unsub => unsub());
+                listeners = [];
+            },
 
-                onSnapshot(getCol('groups'), (snap) => {
+            setupListeners: function() {
+                this.clearListeners();
+                if (!user) return;
+                
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                // 只有管理員才需要監聽 Sys Users
+                if (state.currentUserProfile && state.currentUserProfile.role === 'admin') {
+                    const unsubSys = onSnapshot(getSysUsersCol(), (snap) => {
+                        state.sysUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        if (state.currentView === 'sysadmin') this.renderSysUsers();
+                    });
+                    listeners.push(unsubSys);
+                }
+
+                const unsubGroups = onSnapshot(getCol('groups'), (snap) => {
                     state.groups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.updateContactFilters();
                     this.renderGroupList();
@@ -746,8 +1008,9 @@
                         this.renderContacts();
                     }
                 });
+                listeners.push(unsubGroups);
 
-                onSnapshot(getCol('accounts'), (snap) => {
+                const unsubAccs = onSnapshot(getCol('accounts'), (snap) => {
                     state.accounts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.renderSettingsList();
                     this.renderWmAccountSelect();
@@ -757,14 +1020,16 @@
                     }
                     lucide.createIcons();
                 }, e => console.error("Acc Listener", e));
+                listeners.push(unsubAccs);
 
-                onSnapshot(getCol('contacts'), (snap) => {
+                const unsubContacts = onSnapshot(getCol('contacts'), (snap) => {
                     state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.updateContactFilters();
                     this.renderContacts();
                 });
+                listeners.push(unsubContacts);
 
-                onSnapshot(getCol('local_emails'), (snap) => {
+                const unsubLocals = onSnapshot(getCol('local_emails'), (snap) => {
                     state.localEmails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.updateFolderBadges();
                     if (state.currentView === 'webmail' && state.currentFolder !== 'inbox') {
@@ -780,11 +1045,12 @@
                         }
                     }
                 });
+                listeners.push(unsubLocals);
             },
 
             navigate: function(viewId) {
                 state.currentView = viewId;
-                ['view-home', 'view-settings', 'view-contacts', 'view-webmail'].forEach(id => {
+                ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
                     const el = document.getElementById(id);
                     if(el) el.classList.add('view-hidden');
                 });
@@ -794,9 +1060,113 @@
                 if (viewId === 'webmail' && state.selectedAccountId) {
                     if(state.currentFolder === 'inbox') this.fetchInboxCount(false);
                     else this.renderWebmailList();
+                } else if (viewId === 'sysadmin') {
+                    this.renderSysUsers();
                 }
                 lucide.createIcons();
             },
+            
+            // ================= 系統管理員專屬邏輯 =================
+            renderSysUsers: function() {
+                const pendingList = document.getElementById('sysListPending');
+                const approvedList = document.getElementById('sysListApproved');
+                if(!pendingList || !approvedList) return;
+                
+                pendingList.innerHTML = '';
+                approvedList.innerHTML = '';
+                
+                let pendingCount = 0;
+                let approvedCount = 0;
+
+                state.sysUsers.forEach(su => {
+                    const dateStr = new Date(su.createdAt).toLocaleDateString('zh-TW');
+                    let roleStr = su.role === 'admin' ? '<span class="text-purple-600 font-bold bg-purple-100 px-2 py-0.5 rounded border border-purple-300">管理者</span>' : '<span class="text-gray-600">一般使用者</span>';
+                    
+                    const html = `
+                        <li class="p-3 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 transition gap-2">
+                            <div class="flex-1">
+                                <span class="font-bold text-lg text-gray-800">${escapeHTML(su.username)}</span>
+                                <span class="text-xs text-gray-500 ml-2">註冊日: ${dateStr}</span>
+                                <div class="mt-1">${roleStr}</div>
+                            </div>
+                            <div class="flex space-x-2 shrink-0">
+                                ${su.status === 'pending' ? `<button onclick="app.approveSysUser('${su.id}')" class="anime-btn bg-green-300 text-green-900 px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937]"><i data-lucide="check" class="w-4 h-4 inline"></i> 核准</button>` : ''}
+                                <button onclick="app.openSysEditModal('${su.id}')" class="anime-btn bg-blue-200 text-blue-900 px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937]"><i data-lucide="settings" class="w-4 h-4 inline"></i> 修改</button>
+                                <button onclick="app.deleteSysUser('${su.id}')" class="anime-btn bg-red-200 text-red-900 px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937]"><i data-lucide="trash" class="w-4 h-4 inline"></i> 刪除</button>
+                            </div>
+                        </li>
+                    `;
+                    
+                    if (su.status === 'pending') {
+                        pendingList.innerHTML += html;
+                        pendingCount++;
+                    } else {
+                        approvedList.innerHTML += html;
+                        approvedCount++;
+                    }
+                });
+                
+                if(pendingCount === 0) pendingList.innerHTML = '<li class="p-4 text-center text-gray-500">目前沒有申請中的使用者</li>';
+                if(approvedCount === 0) approvedList.innerHTML = '<li class="p-4 text-center text-gray-500">目前沒有已確認的使用者</li>';
+                
+                document.getElementById('sysCountPending').textContent = `${pendingCount} 人`;
+                document.getElementById('sysCountApproved').textContent = `${approvedCount} 人`;
+                
+                lucide.createIcons();
+            },
+            
+            approveSysUser: async function(id) {
+                try {
+                    await updateDoc(getSysUserDoc(id), { status: 'approved' });
+                    showToast("已核准該使用者");
+                } catch(e) { showToast("核准失敗"); }
+            },
+            
+            deleteSysUser: async function(id) {
+                const su = state.sysUsers.find(u => u.id === id);
+                if (su && su.username === 'lighminge') {
+                    showToast("系統保留帳號，無法刪除");
+                    return;
+                }
+                if (!(await app.customConfirm("刪除使用者", "確定要刪除此系統帳號嗎？"))) return;
+                try {
+                    await deleteDoc(getSysUserDoc(id));
+                    showToast("已刪除該使用者資料");
+                } catch(e) { showToast("刪除失敗"); }
+            },
+            
+            openSysEditModal: function(id) {
+                const su = state.sysUsers.find(u => u.id === id);
+                if (!su) return;
+                document.getElementById('sysEditUid').value = su.id;
+                document.getElementById('sysEditUsername').value = su.username;
+                document.getElementById('sysEditRole').value = su.role || 'user';
+                document.getElementById('sysEditStatus').value = su.status || 'approved';
+                
+                document.getElementById('sysEditModal').classList.remove('hidden');
+            },
+            closeSysEditModal: function() {
+                document.getElementById('sysEditModal').classList.add('hidden');
+            },
+            saveSysUser: async function() {
+                const id = document.getElementById('sysEditUid').value;
+                const role = document.getElementById('sysEditRole').value;
+                const status = document.getElementById('sysEditStatus').value;
+                
+                const su = state.sysUsers.find(u => u.id === id);
+                if (su && su.username === 'lighminge' && role !== 'admin') {
+                    showToast("lighminge 必須保持最高管理者權限");
+                    return;
+                }
+                
+                try {
+                    await updateDoc(getSysUserDoc(id), { role, status });
+                    showToast("使用者權限已更新");
+                    this.closeSysEditModal();
+                } catch(e) { showToast("更新失敗"); }
+            },
+
+            // ===========================================
 
             fillProviderSettings: function() {
                 const provider = document.getElementById('quickProvider').value;
@@ -979,11 +1349,15 @@
                 if(!list) return;
                 list.innerHTML = state.groups.length === 0 ? '<li class="text-gray-500 text-sm py-2">目前沒有任何群組</li>' : '';
                 state.groups.forEach(g => {
+                    const count = state.contacts.filter(c => c.groups && c.groups.includes(g.id)).length;
                     const safeNameForJs = escapeHTML(g.name).replace(/'/g, "\\'");
                     list.innerHTML += `
                         <li class="flex justify-between items-center p-2 border-b border-gray-200 hover:bg-gray-50">
-                            <span class="font-bold text-gray-800"><i data-lucide="tag" class="w-4 h-4 inline-block mr-1 text-gray-400"></i> ${escapeHTML(g.name)}</span>
-                            <div class="flex space-x-2">
+                            <span class="font-bold text-gray-800 flex items-center">
+                                <i data-lucide="tag" class="w-4 h-4 mr-1 text-gray-400"></i> ${escapeHTML(g.name)} 
+                                <span class="ml-2 text-xs text-blue-600 font-normal bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">(共 ${count} 人)</span>
+                            </span>
+                            <div class="flex space-x-2 shrink-0">
                                 <button onclick="app.editGroupItem('${g.id}', '${safeNameForJs}')" class="anime-btn text-xs bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 flex items-center shadow-[1px_1px_0px_#1f2937] active:translate-y-[1px] active:shadow-none"><i data-lucide="edit-3" class="w-3 h-3 mr-1"></i> 修改</button>
                                 <button onclick="app.deleteGroup('${g.id}')" class="anime-btn text-xs bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 flex items-center shadow-[1px_1px_0px_#1f2937] active:translate-y-[1px] active:shadow-none"><i data-lucide="trash" class="w-3 h-3 mr-1"></i> 刪除</button>
                             </div>
@@ -1199,13 +1573,14 @@
 
                 if (filtered.length === 0) {
                     listEl.innerHTML = '<div class="p-4 text-center text-gray-500 font-bold">查無符合條件的聯絡人</div>';
+                    this.updateContactSelectorCount();
                     return;
                 }
 
                 filtered.forEach(c => {
                     listEl.innerHTML += `
                         <label class="flex items-center p-2 hover:bg-green-100 cursor-pointer border-b border-gray-200 transition">
-                            <input type="checkbox" class="anime-checkbox cs-checkbox mr-3" data-name="${escapeHTML(c.name)}" data-email="${escapeHTML(c.email)}">
+                            <input type="checkbox" onchange="app.updateContactSelectorCount()" class="anime-checkbox cs-checkbox mr-3" data-name="${escapeHTML(c.name)}" data-email="${escapeHTML(c.email)}">
                             <div class="flex-1">
                                 <p class="font-bold text-gray-800">${escapeHTML(c.name)} <span class="text-sm font-normal text-gray-500 ml-2">&lt;${escapeHTML(c.email)}&gt;</span></p>
                                 <p class="text-xs text-gray-500">${escapeHTML(c.company || '無單位')}</p>
@@ -1213,7 +1588,20 @@
                         </label>
                     `;
                 });
+                this.updateContactSelectorCount();
             },
+            
+            toggleAllContactsInSelector: function(isSelectAll) {
+                const checkboxes = document.querySelectorAll('.cs-checkbox');
+                checkboxes.forEach(cb => cb.checked = isSelectAll);
+                this.updateContactSelectorCount();
+            },
+            updateContactSelectorCount: function() {
+                const count = document.querySelectorAll('.cs-checkbox:checked').length;
+                const countEl = document.getElementById('csSelectedCount');
+                if (countEl) countEl.textContent = count;
+            },
+            
             confirmContactSelection: function() {
                 const checkboxes = document.querySelectorAll('.cs-checkbox:checked');
                 const selectedEmails = Array.from(checkboxes).map(cb => {
