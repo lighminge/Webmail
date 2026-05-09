@@ -794,13 +794,19 @@
                     if (currentUser) {
                         user = currentUser;
                         
-                        // 驗證是否在 sys_users 中，且狀態為 approved
-                        const profileSnap = await getFsDoc(getSysUserDoc(user.uid));
+                        // 【修復】加入 1.5 秒的重試機制，防止剛註冊完時資料庫還沒寫入的 Race Condition
+                        let profileSnap = await getFsDoc(getSysUserDoc(user.uid));
+                        if (!profileSnap.exists()) {
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                            profileSnap = await getFsDoc(getSysUserDoc(user.uid));
+                        }
+
                         if (profileSnap.exists()) {
                             const profileData = profileSnap.data();
                             if (profileData.status === 'pending') {
                                 showToast("您的帳號尚在申請中，請等待管理員審核");
                                 await signOut(auth);
+                                document.getElementById('loadingOverlay').classList.add('hidden');
                                 return;
                             }
                             
@@ -819,11 +825,14 @@
 
                             document.getElementById('authOverlay').classList.add('hidden');
                             document.getElementById('nav-buttons').classList.remove('hidden');
+                            document.getElementById('loadingOverlay').classList.add('hidden');
                             this.setupListeners();
                             this.navigate('home');
                         } else {
                             // 異常狀態：無 Profile
+                            showToast("找不到使用者設定檔，請重新登入或聯絡管理員");
                             await signOut(auth);
+                            document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     } else {
                         // 顯示登入畫面
@@ -834,7 +843,7 @@
                             const el = document.getElementById(id);
                             if(el) el.classList.add('view-hidden');
                         });
-                        this.clearListeners();
+                        if (this.clearListeners) this.clearListeners();
                     }
                 });
 
@@ -858,8 +867,10 @@
                 try {
                     await signInWithEmailAndPassword(auth, pseudoEmail, pw);
                 } catch (err) {
-                    // 自動初始化管理員邏輯 (lighminge / 88888)
-                    if ((err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') && un === 'lighminge' && pw === '88888') {
+                    // 【修復】相容新版 Firebase 的多種錯誤代碼，並確保順利觸發自動初始化
+                    const isAuthError = err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-login-credentials';
+                    
+                    if (isAuthError && un === 'lighminge' && pw === '88888') {
                         try {
                             const userCred = await createUserWithEmailAndPassword(auth, pseudoEmail, pw);
                             await setDoc(getSysUserDoc(userCred.user.uid), {
@@ -869,9 +880,14 @@
                                 migrated: false,
                                 createdAt: Date.now()
                             });
-                            // Login will proceed via onAuthStateChanged
+                            showToast("管理員帳號初始化成功！");
+                            // onAuthStateChanged 會自動接手後續流程
                         } catch (e) {
-                            showToast("管理員初始化失敗");
+                            if (e.code === 'auth/email-already-in-use') {
+                                showToast("登入失敗：密碼錯誤，或是帳號已存在");
+                            } else {
+                                showToast("管理員初始化失敗: " + e.message);
+                            }
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     } else {
