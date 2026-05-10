@@ -544,7 +544,8 @@
                 </div>
                 <div>
                     <label class="block font-bold mb-1">密碼</label>
-                    <input type="password" id="sysEditPassword" class="anime-input w-full" placeholder="設定新密碼 (留白代表不修改)">
+                    <!-- 【修改】將 type 改為 text，讓管理者能直接看到明文密碼以協助查詢 -->
+                    <input type="text" id="sysEditPassword" class="anime-input w-full" placeholder="設定或修改密碼">
                 </div>
                 <div>
                     <label class="block font-bold mb-1">系統權限</label>
@@ -873,8 +874,8 @@
             login: async function() {
                 const un = document.getElementById('authUsername').value.trim();
                 const pw = document.getElementById('authPassword').value;
-                if (!un) { showToast("登入失敗：請輸入使用者帳號！"); return; }
-                if (!pw) { showToast("登入失敗：請輸入密碼！"); return; }
+                if (!un) { showToast("⚠️ 登入失敗：請輸入您的使用者帳號！"); return; }
+                if (!pw) { showToast("⚠️ 登入失敗：請輸入您的登入密碼！"); return; }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
                 
@@ -886,13 +887,14 @@
                         const userData = userDocSnap.data();
                         if (userData.password === pw) {
                             if (userData.status === 'pending') {
-                                showToast("登入失敗：您的帳號尚在申請中，請等待管理員審核");
+                                showToast("⛔ 登入失敗：您的帳號尚在申請中，請等待管理員審核！");
                                 document.getElementById('loadingOverlay').classList.add('hidden');
                                 return;
                             }
                             await this.finishLogin(un, userData);
                         } else {
-                            showToast("登入失敗：密碼輸入錯誤，請重新確認");
+                            // 【修改】明確的密碼錯誤訊息
+                            showToast("❌ 登入失敗：密碼輸入錯誤，請重新確認！");
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     } else {
@@ -910,13 +912,14 @@
                             showToast("管理員帳號初始化成功！");
                             await this.finishLogin(un, newAdmin);
                         } else {
-                            showToast("登入失敗：查無此帳號，請確認帳號是否正確或先進行註冊");
+                            // 【修改】明確的查無帳號錯誤訊息
+                            showToast(`❌ 登入失敗：查無帳號「${un}」，請確認是否輸入錯誤或尚未註冊！`);
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     }
                 } catch (err) {
                     console.error(err);
-                    showToast("登入失敗：系統連線異常，請檢查網路連線");
+                    showToast("❌ 登入失敗：系統連線異常，請檢查網路連線");
                     document.getElementById('loadingOverlay').classList.add('hidden');
                 }
             },
@@ -948,12 +951,18 @@
             register: async function() {
                 const un = document.getElementById('regUsername').value.trim();
                 const pw = document.getElementById('regPassword').value;
-                if (!un) { showToast("註冊失敗：請輸入使用者帳號！"); return; }
-                if (!pw) { showToast("註冊失敗：請輸入密碼！"); return; }
-                if (pw.length < 6) { showToast("註冊失敗：密碼長度至少需要 6 碼！"); return; }
+                if (!un) { showToast("⚠️ 註冊失敗：請填寫您想要的使用者帳號！"); return; }
+                if (!pw) { showToast("⚠️ 註冊失敗：請設定您的密碼！"); return; }
+                if (pw.length < 6) { showToast("⚠️ 註冊失敗：為了安全起見，密碼長度至少需要 6 碼！"); return; }
                 
                 if (un.toLowerCase() === 'lighminge') {
-                    showToast("註冊失敗：此為系統保留帳號，無法進行註冊！");
+                    showToast("⛔ 註冊失敗：此為系統保留帳號，無法註冊！");
+                    return;
+                }
+                
+                // 【新增】檢查帳號是否包含空白等不合法字元
+                if (/\s/.test(un)) {
+                    showToast("⚠️ 註冊失敗：帳號名稱不能包含空白字元！");
                     return;
                 }
                 
@@ -963,7 +972,8 @@
                     // 改用 Firestore 直接註冊，繞過 Firebase 封鎖
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
                     if (userDocSnap.exists()) {
-                        showToast("註冊失敗：此帳號已經被註冊過了，請使用其他帳號！");
+                        // 【修改】明確的重複衝突錯誤訊息
+                        showToast(`❌ 註冊失敗：帳號「${un}」已經被其他人註冊過了，請更換一個名稱！`);
                         document.getElementById('loadingOverlay').classList.add('hidden');
                         return;
                     }
@@ -976,13 +986,13 @@
                         createdAt: Date.now()
                     });
 
-                    showToast("註冊申請已送出！目前狀態為「申請中」，請等待管理員審核");
+                    showToast("✅ 註冊申請已送出！目前狀態為「申請中」，請等待管理員審核。");
                     this.closeRegisterModal();
-                    document.getElementById('authUsername').value = un; // 帶入剛註冊的帳號，方便使用者
+                    document.getElementById('authUsername').value = un; 
                     document.getElementById('authPassword').value = '';
                 } catch (err) {
                     console.error(err);
-                    showToast("註冊失敗：系統發生錯誤，請稍後再試");
+                    showToast("❌ 註冊失敗：系統發生錯誤，請稍後再試。");
                 } finally {
                     document.getElementById('loadingOverlay').classList.add('hidden');
                 }
@@ -1262,13 +1272,14 @@
                 unInput.readOnly = true;
                 unInput.classList.add('bg-gray-100', 'cursor-not-allowed');
                 
-                document.getElementById('sysEditPassword').value = '';
-                document.getElementById('sysEditPassword').placeholder = '設定新密碼 (留白代表不修改)';
+                // 【修改】直接顯示原密碼，方便管理者查詢，並修改 Placeholder
+                document.getElementById('sysEditPassword').value = su.password || '';
+                document.getElementById('sysEditPassword').placeholder = '在此修改密碼';
                 
                 document.getElementById('sysEditRole').value = su.role || 'user';
                 document.getElementById('sysEditStatus').value = su.status || 'approved';
                 
-                document.getElementById('sysEditModalTitle').textContent = '管理使用者權限';
+                document.getElementById('sysEditModalTitle').textContent = '管理使用者資料';
                 document.getElementById('sysEditModal').classList.remove('hidden');
             },
 
