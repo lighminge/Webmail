@@ -100,7 +100,7 @@
         <h2 class="text-2xl font-bold">系統載入中...</h2>
     </div>
 
-    <!-- 登入與註冊介面 -->
+    <!-- 登入介面 -->
     <div id="authOverlay" class="fixed inset-0 bg-[#fdf6e3] z-[100] flex flex-col items-center justify-center hidden">
         <div class="anime-card bg-white p-8 w-full max-w-md">
             <div class="flex justify-center mb-6 text-orange-500">
@@ -122,9 +122,31 @@
                     <button id="btnLogin" onclick="app.login()" class="anime-btn bg-orange-400 hover:bg-orange-500 text-white w-full py-3 text-lg flex items-center justify-center">
                         <i data-lucide="log-in" class="w-5 h-5 mr-2"></i> 登入系統
                     </button>
-                    <button id="btnRegister" onclick="app.register()" class="anime-btn bg-blue-300 hover:bg-blue-400 text-gray-900 w-full py-3 text-lg flex items-center justify-center">
+                    <!-- 【修改】點擊後開啟專屬註冊視窗 -->
+                    <button id="btnRegister" onclick="app.openRegisterModal()" class="anime-btn bg-blue-300 hover:bg-blue-400 text-gray-900 w-full py-3 text-lg flex items-center justify-center">
                         <i data-lucide="user-plus" class="w-5 h-5 mr-2"></i> 註冊新帳號
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 【新增】專屬註冊申請視窗 -->
+    <div id="registerModal" class="fixed inset-0 bg-black/60 z-[110] hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white p-8 w-full max-w-md">
+            <h2 class="text-3xl font-bold text-center mb-6 text-gray-800">註冊新帳號申請</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-bold mb-1 text-gray-700">使用者帳號</label>
+                    <input type="text" id="regUsername" class="anime-input w-full text-lg" placeholder="請設定您的登入帳號">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1 text-gray-700">密碼</label>
+                    <input type="password" id="regPassword" class="anime-input w-full text-lg" placeholder="至少需 6 碼">
+                </div>
+                <div class="flex space-x-3 pt-4">
+                    <button onclick="app.closeRegisterModal()" class="anime-btn bg-gray-200 px-6 py-2 flex-1 text-gray-800">取消</button>
+                    <button onclick="app.register()" class="anime-btn bg-blue-400 hover:bg-blue-500 text-white px-6 py-2 flex-1">送出申請</button>
                 </div>
             </div>
         </div>
@@ -202,7 +224,13 @@
         <!-- ================= VIEW: SYSTEM ADMIN ================= -->
         <div id="view-sysadmin" class="view-hidden absolute inset-0 overflow-y-auto p-8">
             <div class="max-w-6xl mx-auto">
-                <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block mb-6">系統使用者管理</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">系統使用者管理</h2>
+                    <!-- 【新增】新增使用者按鈕 -->
+                    <button onclick="app.openSysAddModal()" class="anime-btn bg-green-300 px-4 py-2 flex items-center">
+                        <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增系統使用者
+                    </button>
+                </div>
                 
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
                     <!-- 申請中列表 -->
@@ -504,15 +532,19 @@
 
     </main>
 
-    <!-- Modal: 管理員 - 編輯使用者權限 -->
+    <!-- Modal: 管理員 - 新增/編輯使用者權限 -->
     <div id="sysEditModal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4">
         <div class="anime-card bg-white p-6 w-full max-w-md">
-            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2">管理使用者權限</h3>
+            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2" id="sysEditModalTitle">管理使用者權限</h3>
             <div class="space-y-4">
                 <input type="hidden" id="sysEditUid">
                 <div>
                     <label class="block font-bold mb-1">使用者帳號</label>
-                    <input type="text" id="sysEditUsername" class="anime-input w-full bg-gray-100 cursor-not-allowed" readonly>
+                    <input type="text" id="sysEditUsername" class="anime-input w-full" placeholder="設定登入帳號">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">密碼</label>
+                    <input type="password" id="sysEditPassword" class="anime-input w-full" placeholder="設定新密碼 (留白代表不修改)">
                 </div>
                 <div>
                     <label class="block font-bold mb-1">系統權限</label>
@@ -535,7 +567,7 @@
             </div>
             <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                 <button type="button" onclick="app.closeSysEditModal()" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
-                <button type="button" onclick="app.saveSysUser()" class="anime-btn bg-green-400 text-white px-6 py-2">儲存修改</button>
+                <button type="button" onclick="app.saveSysUser()" class="anime-btn bg-green-400 text-white px-6 py-2">儲存</button>
             </div>
         </div>
     </div>
@@ -739,14 +771,11 @@
         let appInstance, auth, db, user;
         let checkTimer = null;
         let listeners = [];
-        let currentAppUser = null; // 模擬系統使用者帳號，取代原本的 user.uid
+        let currentAppUser = null; 
 
-        // 【重大升級】資料完全私有化隔離，並綁定系統自訂帳號
-        // 使用公有資料池，加上帳號名稱作為前綴來區隔資料，確保符合 Firebase 安全規則又能跨裝置存取
         const getCol = (colName) => collection(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_${colName}`);
         const getDoc = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_${colName}`, docId);
         
-        // 系統使用者管理為公有資料池
         const getSysUsersCol = () => collection(db, 'artifacts', appId, 'public', 'data', 'sys_users');
         const getSysUserDoc = (username) => doc(db, 'artifacts', appId, 'public', 'data', 'sys_users', username);
 
@@ -802,15 +831,14 @@
                 try {
                     await initAuth();
 
-                    // 登入狀態監聽
                     onAuthStateChanged(auth, async (currentUser) => {
                         if (currentUser) {
                             user = currentUser;
                             
-                            // 若尚未進行系統帳號登入，顯示登入畫面
                             if (!currentAppUser) {
                                 document.getElementById('loadingOverlay').classList.add('hidden');
                                 document.getElementById('authOverlay').classList.remove('hidden');
+                                document.getElementById('registerModal').classList.add('hidden');
                                 document.getElementById('nav-buttons').classList.add('hidden');
                                 ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
                                     const el = document.getElementById(id);
@@ -831,7 +859,17 @@
                 }
             },
             
-            // ================= 帳號登入系統 =================
+            // ================= 帳號登入與註冊 =================
+            openRegisterModal: function() {
+                document.getElementById('regUsername').value = '';
+                document.getElementById('regPassword').value = '';
+                document.getElementById('registerModal').classList.remove('hidden');
+            },
+            
+            closeRegisterModal: function() {
+                document.getElementById('registerModal').classList.add('hidden');
+            },
+
             login: async function() {
                 const un = document.getElementById('authUsername').value.trim();
                 const pw = document.getElementById('authPassword').value;
@@ -840,7 +878,6 @@
                 document.getElementById('loadingOverlay').classList.remove('hidden');
                 
                 try {
-                    // 完全棄用 Firebase Auth 的 Email/Password 模組(因環境封鎖)，改用 Firestore 底層直連驗證！
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
                     
                     if (userDocSnap.exists()) {
@@ -857,7 +894,6 @@
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     } else {
-                        // 初始化最高管理員邏輯
                         if (un === 'lighminge' && pw === '888888') {
                             const newAdmin = {
                                 username: un,
@@ -890,7 +926,6 @@
 
                 if (profileData.role === 'admin') {
                     document.getElementById('btn-nav-sysadmin').classList.remove('hidden');
-                    // 自動移轉資料邏輯
                     if (!profileData.migrated && username === 'lighminge') {
                         await this.migratePublicDataToAdmin(username);
                     }
@@ -907,15 +942,14 @@
             },
             
             register: async function() {
-                const un = document.getElementById('authUsername').value.trim();
-                const pw = document.getElementById('authPassword').value;
+                const un = document.getElementById('regUsername').value.trim();
+                const pw = document.getElementById('regPassword').value;
                 if (!un || !pw) { showToast("請輸入帳號與密碼以註冊"); return; }
                 if (pw.length < 6) { showToast("密碼長度至少需要 6 碼"); return; }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
                 
                 try {
-                    // 改用 Firestore 直接註冊，繞過 Firebase 封鎖
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
                     if (userDocSnap.exists()) {
                         showToast("此帳號已經被註冊過了");
@@ -932,6 +966,7 @@
                     });
 
                     showToast("註冊成功！目前狀態為「申請中」，請等待管理員審核");
+                    this.closeRegisterModal();
                     document.getElementById('authUsername').value = '';
                     document.getElementById('authPassword').value = '';
                 } catch (err) {
@@ -964,7 +999,6 @@
                 showToast("已成功登出");
             },
             
-            // 資料移轉腳本
             migratePublicDataToAdmin: async function(appUser) {
                 showToast("正在移轉舊系統資料至管理員帳號...");
                 const colsToMigrate = ['accounts', 'contacts', 'groups', 'local_emails'];
@@ -975,7 +1009,7 @@
                         pubQuery.forEach(docSnap => {
                             const privateRef = doc(db, 'artifacts', appId, 'public', 'data', `${appUser}_${c}`, docSnap.id);
                             batch.set(privateRef, docSnap.data());
-                            batch.delete(docSnap.ref); // 刪除公開資料
+                            batch.delete(docSnap.ref); 
                         });
                         await batch.commit();
                     }
@@ -1038,7 +1072,6 @@
                 
                 document.getElementById('loadingOverlay').classList.add('hidden');
 
-                // 只有管理員才需要監聽 Sys Users
                 if (state.currentUserProfile && state.currentUserProfile.role === 'admin') {
                     const unsubSys = onSnapshot(getSysUsersCol(), (snap) => {
                         state.sysUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1105,8 +1138,16 @@
                 if(activeView) activeView.classList.remove('view-hidden');
                 
                 if (viewId === 'webmail' && state.selectedAccountId) {
-                    if(state.currentFolder === 'inbox') this.fetchInboxCount(false);
-                    else this.renderWebmailList();
+                    if(state.currentFolder === 'inbox') {
+                        const hasInboxEmails = state.imapEmails.some(e => e.accountId === state.selectedAccountId);
+                        if (hasInboxEmails) {
+                            this.renderWebmailList();
+                        } else {
+                            this.fetchInboxCount(false);
+                        }
+                    } else {
+                        this.renderWebmailList();
+                    }
                 } else if (viewId === 'sysadmin') {
                     this.renderSysUsers();
                 }
@@ -1182,35 +1223,92 @@
                 } catch(e) { showToast("刪除失敗"); }
             },
             
+            openSysAddModal: function() {
+                document.getElementById('sysEditUid').value = '';
+                
+                const unInput = document.getElementById('sysEditUsername');
+                unInput.value = '';
+                unInput.readOnly = false;
+                unInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                
+                document.getElementById('sysEditPassword').value = '';
+                document.getElementById('sysEditPassword').placeholder = '設定登入密碼';
+                
+                document.getElementById('sysEditRole').value = 'user';
+                document.getElementById('sysEditStatus').value = 'approved';
+                
+                document.getElementById('sysEditModalTitle').textContent = '新增系統使用者';
+                document.getElementById('sysEditModal').classList.remove('hidden');
+            },
+
             openSysEditModal: function(id) {
                 const su = state.sysUsers.find(u => u.id === id);
                 if (!su) return;
                 document.getElementById('sysEditUid').value = su.id;
-                document.getElementById('sysEditUsername').value = su.username;
+                
+                const unInput = document.getElementById('sysEditUsername');
+                unInput.value = su.username;
+                unInput.readOnly = true;
+                unInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                
+                document.getElementById('sysEditPassword').value = '';
+                document.getElementById('sysEditPassword').placeholder = '設定新密碼 (留白代表不修改)';
+                
                 document.getElementById('sysEditRole').value = su.role || 'user';
                 document.getElementById('sysEditStatus').value = su.status || 'approved';
                 
+                document.getElementById('sysEditModalTitle').textContent = '管理使用者權限';
                 document.getElementById('sysEditModal').classList.remove('hidden');
             },
+
             closeSysEditModal: function() {
                 document.getElementById('sysEditModal').classList.add('hidden');
             },
+
             saveSysUser: async function() {
                 const id = document.getElementById('sysEditUid').value;
+                const un = document.getElementById('sysEditUsername').value.trim();
+                const pw = document.getElementById('sysEditPassword').value;
                 const role = document.getElementById('sysEditRole').value;
                 const status = document.getElementById('sysEditStatus').value;
                 
-                const su = state.sysUsers.find(u => u.id === id);
-                if (su && su.username === 'lighminge' && role !== 'admin') {
-                    showToast("lighminge 必須保持最高管理者權限");
-                    return;
-                }
+                if (!un) { showToast("請填寫使用者帳號"); return; }
                 
-                try {
-                    await updateDoc(getSysUserDoc(id), { role, status });
-                    showToast("使用者權限已更新");
-                    this.closeSysEditModal();
-                } catch(e) { showToast("更新失敗"); }
+                if (id) {
+                    const su = state.sysUsers.find(u => u.id === id);
+                    if (su && su.username === 'lighminge' && role !== 'admin') {
+                        showToast("lighminge 必須保持最高管理者權限");
+                        return;
+                    }
+                    
+                    const updateData = { role, status };
+                    if (pw) updateData.password = pw;
+                    
+                    try {
+                        await updateDoc(getSysUserDoc(id), updateData);
+                        showToast("使用者資料已更新");
+                        this.closeSysEditModal();
+                    } catch(e) { showToast("更新失敗"); }
+                } else {
+                    if (!pw || pw.length < 6) { showToast("請設定至少 6 碼的密碼"); return; }
+                    
+                    try {
+                        const userDocSnap = await getFsDoc(getSysUserDoc(un));
+                        if (userDocSnap.exists()) {
+                            showToast("此帳號已經存在！");
+                            return;
+                        }
+                        await setDoc(getSysUserDoc(un), {
+                            username: un,
+                            password: pw,
+                            role: role,
+                            status: status,
+                            createdAt: Date.now()
+                        });
+                        showToast("新增使用者成功！");
+                        this.closeSysEditModal();
+                    } catch(e) { showToast("新增失敗"); }
+                }
             },
 
             // ===========================================
