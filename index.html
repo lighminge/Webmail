@@ -228,7 +228,7 @@
                     <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">系統使用者管理</h2>
                     <!-- 【新增】新增使用者按鈕 -->
                     <button onclick="app.openSysAddModal()" class="anime-btn bg-green-300 px-4 py-2 flex items-center">
-                        <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增系統使用者
+                        <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增使用者
                     </button>
                 </div>
                 
@@ -873,27 +873,30 @@
             login: async function() {
                 const un = document.getElementById('authUsername').value.trim();
                 const pw = document.getElementById('authPassword').value;
-                if (!un || !pw) { showToast("請輸入帳號與密碼"); return; }
+                if (!un) { showToast("登入失敗：請輸入使用者帳號！"); return; }
+                if (!pw) { showToast("登入失敗：請輸入密碼！"); return; }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
                 
                 try {
+                    // 完全棄用 Firebase Auth 的 Email/Password 模組(因環境封鎖)，改用 Firestore 底層直連驗證！
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
                     
                     if (userDocSnap.exists()) {
                         const userData = userDocSnap.data();
                         if (userData.password === pw) {
                             if (userData.status === 'pending') {
-                                showToast("您的帳號尚在申請中，請等待管理員審核");
+                                showToast("登入失敗：您的帳號尚在申請中，請等待管理員審核");
                                 document.getElementById('loadingOverlay').classList.add('hidden');
                                 return;
                             }
                             await this.finishLogin(un, userData);
                         } else {
-                            showToast("登入失敗：密碼錯誤");
+                            showToast("登入失敗：密碼輸入錯誤，請重新確認");
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     } else {
+                        // 初始化最高管理員邏輯
                         if (un === 'lighminge' && pw === '888888') {
                             const newAdmin = {
                                 username: un,
@@ -907,13 +910,13 @@
                             showToast("管理員帳號初始化成功！");
                             await this.finishLogin(un, newAdmin);
                         } else {
-                            showToast("登入失敗：帳號不存在");
+                            showToast("登入失敗：查無此帳號，請確認帳號是否正確或先進行註冊");
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     }
                 } catch (err) {
                     console.error(err);
-                    showToast("登入失敗，請檢查網路連線");
+                    showToast("登入失敗：系統連線異常，請檢查網路連線");
                     document.getElementById('loadingOverlay').classList.add('hidden');
                 }
             },
@@ -926,6 +929,7 @@
 
                 if (profileData.role === 'admin') {
                     document.getElementById('btn-nav-sysadmin').classList.remove('hidden');
+                    // 自動移轉資料邏輯
                     if (!profileData.migrated && username === 'lighminge') {
                         await this.migratePublicDataToAdmin(username);
                     }
@@ -944,15 +948,22 @@
             register: async function() {
                 const un = document.getElementById('regUsername').value.trim();
                 const pw = document.getElementById('regPassword').value;
-                if (!un || !pw) { showToast("請輸入帳號與密碼以註冊"); return; }
-                if (pw.length < 6) { showToast("密碼長度至少需要 6 碼"); return; }
+                if (!un) { showToast("註冊失敗：請輸入使用者帳號！"); return; }
+                if (!pw) { showToast("註冊失敗：請輸入密碼！"); return; }
+                if (pw.length < 6) { showToast("註冊失敗：密碼長度至少需要 6 碼！"); return; }
+                
+                if (un.toLowerCase() === 'lighminge') {
+                    showToast("註冊失敗：此為系統保留帳號，無法進行註冊！");
+                    return;
+                }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
                 
                 try {
+                    // 改用 Firestore 直接註冊，繞過 Firebase 封鎖
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
                     if (userDocSnap.exists()) {
-                        showToast("此帳號已經被註冊過了");
+                        showToast("註冊失敗：此帳號已經被註冊過了，請使用其他帳號！");
                         document.getElementById('loadingOverlay').classList.add('hidden');
                         return;
                     }
@@ -965,13 +976,13 @@
                         createdAt: Date.now()
                     });
 
-                    showToast("註冊成功！目前狀態為「申請中」，請等待管理員審核");
+                    showToast("註冊申請已送出！目前狀態為「申請中」，請等待管理員審核");
                     this.closeRegisterModal();
-                    document.getElementById('authUsername').value = '';
+                    document.getElementById('authUsername').value = un; // 帶入剛註冊的帳號，方便使用者
                     document.getElementById('authPassword').value = '';
                 } catch (err) {
                     console.error(err);
-                    showToast("註冊失敗，請檢查網路");
+                    showToast("註冊失敗：系統發生錯誤，請稍後再試");
                 } finally {
                     document.getElementById('loadingOverlay').classList.add('hidden');
                 }
@@ -1237,7 +1248,7 @@
                 document.getElementById('sysEditRole').value = 'user';
                 document.getElementById('sysEditStatus').value = 'approved';
                 
-                document.getElementById('sysEditModalTitle').textContent = '新增系統使用者';
+                document.getElementById('sysEditModalTitle').textContent = '新增使用者';
                 document.getElementById('sysEditModal').classList.remove('hidden');
             },
 
