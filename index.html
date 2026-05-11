@@ -114,8 +114,16 @@
                     <input type="text" id="authUsername" class="anime-input w-full text-lg" placeholder="請輸入您的帳號" autocomplete="off">
                 </div>
                 <div>
-                    <label class="block font-bold mb-1 text-gray-700">密碼</label>
-                    <input type="password" id="authPassword" class="anime-input w-full text-lg" placeholder="請輸入密碼" autocomplete="new-password">
+                    <label class="block font-bold mb-1 text-gray-700 flex justify-between items-end">
+                        <span>密碼</span>
+                        <span id="authPwCount" class="text-xs text-gray-500 font-normal">已輸入 0 個字</span>
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="authPassword" class="anime-input w-full text-lg pr-12" placeholder="請輸入密碼" autocomplete="new-password" oninput="document.getElementById('authPwCount').textContent = '已輸入 ' + this.value.length + ' 個字'">
+                        <button type="button" onclick="app.togglePasswordVisibility('authPassword', 'authPwEye')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 focus:outline-none">
+                            <i data-lucide="eye" id="authPwEye" class="w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="flex flex-col space-y-3 pt-4">
@@ -140,8 +148,16 @@
                     <input type="text" id="regUsername" class="anime-input w-full text-lg" placeholder="請設定您的登入帳號" autocomplete="off">
                 </div>
                 <div>
-                    <label class="block font-bold mb-1 text-gray-700">密碼</label>
-                    <input type="password" id="regPassword" class="anime-input w-full text-lg" placeholder="至少需 6 碼" autocomplete="new-password">
+                    <label class="block font-bold mb-1 text-gray-700 flex justify-between items-end">
+                        <span>密碼</span>
+                        <span id="regPwCount" class="text-xs text-gray-500 font-normal">已輸入 0 個字</span>
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="regPassword" class="anime-input w-full text-lg pr-12" placeholder="至少需 6 碼" autocomplete="new-password" oninput="document.getElementById('regPwCount').textContent = '已輸入 ' + this.value.length + ' 個字'">
+                        <button type="button" onclick="app.togglePasswordVisibility('regPassword', 'regPwEye')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 focus:outline-none">
+                            <i data-lucide="eye" id="regPwEye" class="w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="flex space-x-3 pt-4">
                     <button onclick="app.closeRegisterModal()" class="anime-btn bg-gray-200 px-6 py-2 flex-1 text-gray-800">取消</button>
@@ -713,7 +729,8 @@
 
     <!-- Modal: 收件者通訊錄選取器 -->
     <div id="contactSelectorModal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4">
-        <div class="anime-card bg-white p-6 w-full max-w-3xl flex flex-col h-[85vh]">
+        <!-- 【修改】將 max-w-3xl 加寬為 max-w-4xl -->
+        <div class="anime-card bg-white p-6 w-full max-w-4xl flex flex-col h-[85vh]">
             <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2 flex justify-between items-center shrink-0">
                 <span>選擇收件人</span>
                 <button onclick="app.closeContactSelector()" class="text-gray-500 hover:text-red-500"><i data-lucide="x" class="w-6 h-6"></i></button>
@@ -741,10 +758,11 @@
                     <button onclick="app.selectAllCS()" class="anime-btn bg-blue-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-blue-300">跨頁全選</button>
                     <button onclick="app.clearSelectionCS()" class="anime-btn bg-gray-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-gray-300">全部取消</button>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="app.changeCSPage(-1)" class="anime-btn bg-white px-2 py-1 text-xs shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100">&lt; 上一頁</button>
-                    <span class="text-sm font-bold text-gray-700" id="csPageInfo">第 1 / 1 頁</span>
-                    <button onclick="app.changeCSPage(1)" class="anime-btn bg-white px-2 py-1 text-xs shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100">下一頁 &gt;</button>
+                <!-- 【修改】加上 shrink-0 與 whitespace-nowrap 防止按鈕被擠到換行 -->
+                <div class="flex items-center space-x-3 shrink-0">
+                    <button onclick="app.changeCSPage(-1)" class="anime-btn bg-white px-2 py-1 text-xs shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100 whitespace-nowrap">&lt; 上一頁</button>
+                    <span class="text-sm font-bold text-gray-700 whitespace-nowrap" id="csPageInfo">第 1 / 1 頁</span>
+                    <button onclick="app.changeCSPage(1)" class="anime-btn bg-white px-2 py-1 text-xs shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100 whitespace-nowrap">下一頁 &gt;</button>
                 </div>
             </div>
             
@@ -991,11 +1009,29 @@
                 document.getElementById('centerAlertModal').classList.add('hidden');
             },
             
+            // 【新增】密碼顯示切換功能
+            togglePasswordVisibility: function(inputId, iconId) {
+                const input = document.getElementById(inputId);
+                const icon = document.getElementById(iconId);
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.setAttribute('data-lucide', 'eye-off');
+                } else {
+                    input.type = 'password';
+                    icon.setAttribute('data-lucide', 'eye');
+                }
+                lucide.createIcons();
+            },
+            
             // ================= 帳號登入與註冊 =================
             openRegisterModal: function() {
                 document.getElementById('regUsername').value = '';
                 document.getElementById('regPassword').value = '';
+                document.getElementById('regPassword').type = 'password';
+                document.getElementById('regPwCount').textContent = '已輸入 0 個字';
+                document.getElementById('regPwEye').setAttribute('data-lucide', 'eye');
                 document.getElementById('registerModal').classList.remove('hidden');
+                lucide.createIcons();
             },
             
             closeRegisterModal: function() {
@@ -1131,6 +1167,7 @@
                     this.closeRegisterModal();
                     document.getElementById('authUsername').value = un; 
                     document.getElementById('authPassword').value = '';
+                    document.getElementById('authPwCount').textContent = '已輸入 0 個字';
                 } catch (err) {
                     console.error(err);
                     this.showCenterAlert("系統發生錯誤，請稍後再試。");
@@ -1161,6 +1198,10 @@
                 
                 document.getElementById('authUsername').value = '';
                 document.getElementById('authPassword').value = '';
+                document.getElementById('authPassword').type = 'password';
+                document.getElementById('authPwCount').textContent = '已輸入 0 個字';
+                document.getElementById('authPwEye').setAttribute('data-lucide', 'eye');
+                lucide.createIcons();
                 
                 showToast("已成功登出");
             },
