@@ -389,10 +389,13 @@
                 <div class="anime-card bg-white overflow-x-auto shadow-lg">
                     <!-- 【新增】選取狀態與分頁控制列 -->
                     <div class="bg-blue-50 border-b-2 border-gray-800 p-3 flex flex-col sm:flex-row justify-between items-center gap-2">
-                        <div class="font-bold text-gray-800 flex items-center">
+                        <div class="font-bold text-gray-800 flex items-center flex-wrap">
                             <i data-lucide="check-square" class="w-5 h-5 mr-2 text-blue-600"></i>
                             已選取 <span id="contactSelectedCount" class="text-blue-700 text-xl mx-2">0</span> 人
                             <span class="text-xs text-gray-500 ml-2 font-normal">(支援跨頁選取)</span>
+                            <!-- 【新增】獨立的全選與全取消按鈕 -->
+                            <button onclick="app.selectAllContacts()" class="anime-btn bg-blue-200 px-2 py-1 text-xs ml-3 shadow-[1px_1px_0px_#1f2937] hover:bg-blue-300">全選</button>
+                            <button onclick="app.clearContactSelection()" class="anime-btn bg-gray-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-gray-300">全取消</button>
                         </div>
                         <div class="flex items-center space-x-3">
                             <button onclick="app.changeContactPage(-1)" class="anime-btn bg-white px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100">&lt; 上一頁</button>
@@ -1803,6 +1806,13 @@
                 }
             },
 
+            // 【新增】獨立的全選功能
+            selectAllContacts: function() {
+                const filtered = this.getFilteredContacts();
+                filtered.forEach(c => state.selectedContactIds.add(c.id));
+                this.renderContacts();
+            },
+
             toggleSelectAllContacts: function(cb) {
                 const filtered = this.getFilteredContacts();
                 if(cb.checked) {
@@ -2071,12 +2081,13 @@
                     const isChecked = state.selectedContactIds.has(c.id);
                     const genderIcon = c.gender === 'M' ? '<span class="text-blue-500 font-bold">男</span>' : (c.gender === 'F' ? '<span class="text-pink-500 font-bold">女</span>' : '<span class="text-gray-500">其他</span>');
 
-                    // 【修改】被選取時的高亮標記 (黃底 + 粗黃色左邊框)
-                    const rowClass = isChecked ? 'bg-yellow-200 border-l-[6px] border-yellow-500' : 'hover:bg-green-50 border-l-[6px] border-transparent';
+                    // 【修改】將 border-left 移至第一個 td 內，解決 table border-collapse 導致其他列邊框被吃掉的問題
+                    const rowClass = isChecked ? 'bg-yellow-200' : 'hover:bg-green-50';
+                    const leftBorderClass = isChecked ? 'border-l-[6px] border-yellow-500' : 'border-l-[6px] border-transparent';
 
                     tbody.innerHTML += `
                         <tr class="transition border-b border-gray-300 ${rowClass}">
-                            <td class="p-3 text-center border-r border-gray-300">
+                            <td class="p-3 text-center border-r border-gray-300 ${leftBorderClass}">
                                 <input type="checkbox" class="anime-checkbox" ${isChecked ? 'checked' : ''} onclick="app.toggleContactSelect(this, '${c.id}')">
                             </td>
                             <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
