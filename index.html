@@ -1873,6 +1873,26 @@
                 if (state.selectedContactIds.size === 0) { showToast("請先勾選下方的聯絡人"); return; }
                 this.openBatchGroupModal('remove');
             },
+
+            // 【修復】補回遺失的開啟/關閉批次群組視窗函數
+            openBatchGroupModal: function(action) {
+                if (state.groups.length === 0) { showToast("目前沒有群組，請先前往「群組管理」新增！"); return; }
+                
+                state.batchGroupAction = action;
+                document.getElementById('batchGroupModalTitle').textContent = action === 'add' ? `批次加入群組 (共 ${state.selectedContactIds.size} 人)` : `批次退出群組 (共 ${state.selectedContactIds.size} 人)`;
+                
+                const sel = document.getElementById('batchGroupSelect');
+                sel.innerHTML = '<option value="">請選擇目標群組...</option>';
+                state.groups.forEach(g => {
+                    sel.innerHTML += `<option value="${g.id}">${escapeHTML(g.name)}</option>`;
+                });
+                
+                document.getElementById('batchGroupModal').classList.remove('hidden');
+            },
+            
+            closeBatchGroupModal: function() {
+                document.getElementById('batchGroupModal').classList.add('hidden');
+            },
             
             batchDeleteContacts: async function() {
                 if (state.selectedContactIds.size === 0) { showToast("請先勾選要刪除的聯絡人"); return; }
