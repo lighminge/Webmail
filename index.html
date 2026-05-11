@@ -115,7 +115,6 @@
                 </div>
                 <div>
                     <label class="block font-bold mb-1 text-gray-700">密碼</label>
-                    <!-- 【修改】加入 autocomplete="new-password" 阻止瀏覽器自動帶入舊密碼 -->
                     <input type="password" id="authPassword" class="anime-input w-full text-lg" placeholder="請輸入密碼" autocomplete="new-password">
                 </div>
                 
@@ -387,15 +386,16 @@
                 </div>
 
                 <div class="anime-card bg-white overflow-x-auto shadow-lg">
-                    <!-- 【新增】選取狀態與分頁控制列 -->
+                    <!-- 選取狀態與分頁控制列 -->
                     <div class="bg-blue-50 border-b-2 border-gray-800 p-3 flex flex-col sm:flex-row justify-between items-center gap-2">
-                        <div class="font-bold text-gray-800 flex items-center flex-wrap">
+                        <div class="font-bold text-gray-800 flex items-center flex-wrap gap-y-2">
                             <i data-lucide="check-square" class="w-5 h-5 mr-2 text-blue-600"></i>
                             已選取 <span id="contactSelectedCount" class="text-blue-700 text-xl mx-2">0</span> 人
                             <span class="text-xs text-gray-500 ml-2 font-normal">(支援跨頁選取)</span>
-                            <!-- 【新增】獨立的全選與全取消按鈕 -->
-                            <button onclick="app.selectAllContacts()" class="anime-btn bg-blue-200 px-2 py-1 text-xs ml-3 shadow-[1px_1px_0px_#1f2937] hover:bg-blue-300">全選</button>
-                            <button onclick="app.clearContactSelection()" class="anime-btn bg-gray-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-gray-300">全取消</button>
+                            <button onclick="app.selectCurrentPageContacts()" class="anime-btn bg-teal-200 px-2 py-1 text-xs ml-3 shadow-[1px_1px_0px_#1f2937] hover:bg-teal-300">本頁全選</button>
+                            <button onclick="app.deselectCurrentPageContacts()" class="anime-btn bg-orange-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-orange-300">本頁取消</button>
+                            <button onclick="app.selectAllContacts()" class="anime-btn bg-blue-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-blue-300">跨頁全選</button>
+                            <button onclick="app.clearContactSelection()" class="anime-btn bg-gray-200 px-2 py-1 text-xs ml-2 shadow-[1px_1px_0px_#1f2937] hover:bg-gray-300">全部取消</button>
                         </div>
                         <div class="flex items-center space-x-3">
                             <button onclick="app.changeContactPage(-1)" class="anime-btn bg-white px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100">&lt; 上一頁</button>
@@ -408,7 +408,7 @@
                         <thead>
                             <tr class="border-b-2 border-gray-800 bg-gray-100">
                                 <th class="p-3 font-bold w-12 text-center border-r border-gray-300">
-                                    <input type="checkbox" class="anime-checkbox" id="contactSelectAll" onclick="app.toggleSelectAllContacts(this)" title="全選/取消全選目前查詢的聯絡人">
+                                    <input type="checkbox" class="anime-checkbox" id="contactSelectAll" onclick="app.toggleSelectAllContacts(this)" title="全選/取消全選目前頁面的聯絡人">
                                 </th>
                                 <th class="p-3 font-bold">名稱</th>
                                 <th class="p-3 font-bold">性別</th>
@@ -674,7 +674,6 @@
                         <input type="email" id="ctEmail" required class="anime-input w-full">
                     </div>
                     
-                    <!-- 【新增】性別欄位 -->
                     <div>
                         <label class="block font-bold mb-1">性別</label>
                         <div class="flex space-x-4 items-center h-[42px] bg-white border-2 border-gray-800 rounded-lg px-3 shadow-[2px_2px_0px_#d1d5db]">
@@ -683,7 +682,6 @@
                             <label class="cursor-pointer flex items-center"><input type="radio" name="ctGender" value="O" class="mr-1"> 其他</label>
                         </div>
                     </div>
-                    <!-- 【新增】職稱欄位 -->
                     <div>
                         <label class="block font-bold mb-1">職稱</label>
                         <input type="text" id="ctTitle" class="anime-input w-full" placeholder="例如: 經理, 工程師">
@@ -832,7 +830,7 @@
                 <i data-lucide="alert-circle" class="w-8 h-8"></i>
             </div>
             <h3 class="text-2xl font-bold mb-2 text-gray-800">系統提示</h3>
-            <p class="text-gray-600 mb-6 font-bold" id="centerAlertMsg">發生錯誤</p>
+            <p class="text-gray-600 mb-6 font-bold whitespace-pre-wrap" id="centerAlertMsg">發生錯誤</p>
             <button onclick="app.closeCenterAlert()" class="anime-btn bg-red-500 hover:bg-red-600 text-white px-8 py-2 w-full">我知道了</button>
         </div>
     </div>
@@ -1806,6 +1804,23 @@
                 }
             },
 
+            // 【新增】本頁全選與本頁取消功能
+            selectCurrentPageContacts: function() {
+                const filtered = this.getFilteredContacts();
+                const startIdx = (state.contactPage - 1) * 50;
+                const pageItems = filtered.slice(startIdx, startIdx + 50);
+                pageItems.forEach(c => state.selectedContactIds.add(c.id));
+                this.renderContacts();
+            },
+
+            deselectCurrentPageContacts: function() {
+                const filtered = this.getFilteredContacts();
+                const startIdx = (state.contactPage - 1) * 50;
+                const pageItems = filtered.slice(startIdx, startIdx + 50);
+                pageItems.forEach(c => state.selectedContactIds.delete(c.id));
+                this.renderContacts();
+            },
+
             // 【新增】獨立的全選功能
             selectAllContacts: function() {
                 const filtered = this.getFilteredContacts();
@@ -1815,12 +1830,15 @@
 
             toggleSelectAllContacts: function(cb) {
                 const filtered = this.getFilteredContacts();
+                const startIdx = (state.contactPage - 1) * 50;
+                const pageItems = filtered.slice(startIdx, startIdx + 50);
+                
                 if(cb.checked) {
-                    // 全選當前篩選下的「所有」聯絡人 (支援跨頁批次處理)
-                    filtered.forEach(c => state.selectedContactIds.add(c.id));
+                    // 表題核取方塊改為：只選取「當前頁面」的聯絡人
+                    pageItems.forEach(c => state.selectedContactIds.add(c.id));
                 } else {
-                    // 取消全選
-                    filtered.forEach(c => state.selectedContactIds.delete(c.id));
+                    // 取消當前頁面
+                    pageItems.forEach(c => state.selectedContactIds.delete(c.id));
                 }
                 this.renderContacts();
             },
@@ -1968,20 +1986,23 @@
                         const text = e.target.result;
                         const lines = text.split(/\r?\n/);
                         if (lines.length < 2) { 
-                            showToast("無法解析 CSV 檔案，請確認格式"); 
+                            this.showCenterAlert("無法解析 CSV 檔案，請確認格式是否正確"); 
                             document.getElementById('loadingOverlay').classList.add('hidden');
                             return; 
                         }
                         
-                        // 嘗試解析標頭
                         const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
                         const batch = writeBatch(db);
-                        let count = 0;
+                        let successCount = 0;
+                        let duplicateCount = 0;
+                        let noEmailCount = 0;
+                        
+                        // 【修改】建立既有 Email 的 Set 集合，用來比對重複資料
+                        const existingEmails = new Set(state.contacts.map(c => c.email.toLowerCase()));
                         
                         for (let i = 1; i < lines.length; i++) {
                             if (!lines[i].trim()) continue;
                             
-                            // 簡易的正則表達式，處理包含逗號的引號字串
                             const rowVals = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').trim());
                             
                             let name='', email='', gender='O', title='', company='', note='';
@@ -2001,38 +2022,49 @@
                                 else if (h.includes('note') || h.includes('備註')) note = val;
                             });
                             
-                            // 只要有 Name 或 Email 就存入
-                            if (name || email) { 
-                                const newRef = doc(collection(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_contacts`));
-                                batch.set(newRef, { 
-                                    name: name || '未知聯絡人', 
-                                    email: email, 
-                                    gender: gender, 
-                                    title: title, 
-                                    company: company, 
-                                    note: note, 
-                                    groups: [], 
-                                    createdAt: Date.now() 
-                                });
-                                count++;
+                            // 【修改】條件 1：沒有 Email 則跳過
+                            if (!email) {
+                                noEmailCount++;
+                                continue;
                             }
+                            
+                            // 【修改】條件 2：檢查 Email 是否已存在於系統或這批檔案中 (防止重複匯入)
+                            const lowerEmail = email.toLowerCase();
+                            if (existingEmails.has(lowerEmail)) {
+                                duplicateCount++;
+                                continue;
+                            }
+                            
+                            existingEmails.add(lowerEmail);
+                            
+                            const newRef = doc(collection(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_contacts`));
+                            batch.set(newRef, { 
+                                name: name || email.split('@')[0], 
+                                email: email, 
+                                gender: gender, 
+                                title: title, 
+                                company: company, 
+                                note: note, 
+                                groups: [], 
+                                createdAt: Date.now() 
+                            });
+                            successCount++;
                         }
                         
-                        if (count > 0) {
+                        if (successCount > 0) {
                             await batch.commit();
-                            showToast(`成功匯入 ${count} 筆聯絡人資料！`);
+                            this.showCenterAlert(`匯入完成！\n✅ 成功新增：${successCount} 筆\n⚠️ 重複跳過：${duplicateCount} 筆\n❌ 無 Email 跳過：${noEmailCount} 筆`);
                         } else {
-                            showToast("未找到符合標準格式的聯絡人資料");
+                            this.showCenterAlert(`未匯入任何資料。\n⚠️ 因重複而跳過：${duplicateCount} 筆\n❌ 因無 Email 而跳過：${noEmailCount} 筆`);
                         }
                     } catch (err) {
                         console.error(err);
-                        showToast("匯入過程中發生錯誤");
+                        this.showCenterAlert("匯入過程中發生錯誤，請確認檔案格式是否正確");
                     } finally {
                         document.getElementById('importContactInput').value = '';
                         document.getElementById('loadingOverlay').classList.add('hidden');
                     }
                 };
-                // 支援中文的檔案讀取 (預設為 UTF-8，若亂碼可能是 Excel 預設的 Big5，這裡先採多數標準 UTF-8)
                 reader.readAsText(file);
             },
 
@@ -2052,18 +2084,14 @@
                 const pageInfoEl = document.getElementById('contactPageInfo');
                 if (pageInfoEl) pageInfoEl.textContent = `第 ${state.contactPage} / ${totalPages} 頁`;
 
-                // 更新全選 Checkbox 狀態 (當前篩選是否全被選取)
-                const allCb = document.getElementById('contactSelectAll');
-                if (allCb) {
-                    allCb.checked = filtered.length > 0 && filtered.every(c => state.selectedContactIds.has(c.id));
-                }
-                
                 const tbody = document.getElementById('contactsTableBody');
                 if(!tbody) return;
                 tbody.innerHTML = '';
                 
                 if (filtered.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
+                    const allCb = document.getElementById('contactSelectAll');
+                    if (allCb) allCb.checked = false;
                     return;
                 }
                 
@@ -2072,6 +2100,12 @@
                 const endIdx = startIdx + 50;
                 const pageItems = filtered.slice(startIdx, endIdx);
                 
+                // 【修改】更新全選 Checkbox 狀態，只檢查「當前頁面」是否全被選取
+                const allCb = document.getElementById('contactSelectAll');
+                if (allCb) {
+                    allCb.checked = pageItems.length > 0 && pageItems.every(c => state.selectedContactIds.has(c.id));
+                }
+
                 pageItems.forEach(c => {
                     const groupNames = (c.groups || []).map(gid => {
                         const g = state.groups.find(x => x.id === gid);
