@@ -94,7 +94,7 @@
 </head>
 <body class="h-screen overflow-hidden flex flex-col">
 
-    <!-- Loading Overlay (修改 z-index 為 200 確保在最上層，並加上半透明背景) -->
+    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="fixed inset-0 bg-[#fdf6e3]/80 z-[200] flex flex-col items-center justify-center">
         <i data-lucide="loader-2" class="w-12 h-12 animate-spin text-orange-500 mb-4"></i>
         <h2 class="text-2xl font-bold">系統處理中...</h2>
@@ -111,18 +111,18 @@
             <div class="space-y-4">
                 <div>
                     <label class="block font-bold mb-1 text-gray-700">使用者帳號</label>
-                    <input type="text" id="authUsername" class="anime-input w-full text-lg" placeholder="請輸入您的帳號">
+                    <input type="text" id="authUsername" class="anime-input w-full text-lg" placeholder="請輸入您的帳號" autocomplete="off">
                 </div>
                 <div>
                     <label class="block font-bold mb-1 text-gray-700">密碼</label>
-                    <input type="password" id="authPassword" class="anime-input w-full text-lg" placeholder="請輸入密碼">
+                    <!-- 【修改】加入 autocomplete="new-password" 阻止瀏覽器自動帶入舊密碼 -->
+                    <input type="password" id="authPassword" class="anime-input w-full text-lg" placeholder="請輸入密碼" autocomplete="new-password">
                 </div>
                 
                 <div class="flex flex-col space-y-3 pt-4">
                     <button id="btnLogin" onclick="app.login()" class="anime-btn bg-orange-400 hover:bg-orange-500 text-white w-full py-3 text-lg flex items-center justify-center">
                         <i data-lucide="log-in" class="w-5 h-5 mr-2"></i> 登入系統
                     </button>
-                    <!-- 【修改】點擊後開啟專屬註冊視窗 -->
                     <button id="btnRegister" onclick="app.openRegisterModal()" class="anime-btn bg-blue-300 hover:bg-blue-400 text-gray-900 w-full py-3 text-lg flex items-center justify-center">
                         <i data-lucide="user-plus" class="w-5 h-5 mr-2"></i> 註冊新帳號
                     </button>
@@ -131,18 +131,18 @@
         </div>
     </div>
 
-    <!-- 【新增】專屬註冊申請視窗 -->
+    <!-- 專屬註冊申請視窗 -->
     <div id="registerModal" class="fixed inset-0 bg-black/60 z-[110] hidden flex items-center justify-center p-4">
         <div class="anime-card bg-white p-8 w-full max-w-md">
             <h2 class="text-3xl font-bold text-center mb-6 text-gray-800">註冊新帳號申請</h2>
             <div class="space-y-4">
                 <div>
                     <label class="block font-bold mb-1 text-gray-700">使用者帳號</label>
-                    <input type="text" id="regUsername" class="anime-input w-full text-lg" placeholder="請設定您的登入帳號">
+                    <input type="text" id="regUsername" class="anime-input w-full text-lg" placeholder="請設定您的登入帳號" autocomplete="off">
                 </div>
                 <div>
                     <label class="block font-bold mb-1 text-gray-700">密碼</label>
-                    <input type="password" id="regPassword" class="anime-input w-full text-lg" placeholder="至少需 6 碼">
+                    <input type="password" id="regPassword" class="anime-input w-full text-lg" placeholder="至少需 6 碼" autocomplete="new-password">
                 </div>
                 <div class="flex space-x-3 pt-4">
                     <button onclick="app.closeRegisterModal()" class="anime-btn bg-gray-200 px-6 py-2 flex-1 text-gray-800">取消</button>
@@ -157,10 +157,8 @@
         <div class="flex items-end cursor-pointer" onclick="app.navigate('home')">
             <i data-lucide="mail" class="text-orange-500 w-8 h-8 mr-2 pb-1"></i>
             <h1 class="text-3xl font-bold tracking-wider text-gray-800 mt-1 hidden md:block">OmniMail</h1>
-            <!-- 【新增】登入日期與時間 -->
             <span id="headerLoginTime" class="text-sm text-gray-500 ml-4 mb-1 font-bold hidden lg:block"></span>
         </div>
-        <!-- 導覽按鈕區域 -->
         <div id="nav-buttons" class="flex space-x-2 md:space-x-4 hidden items-center">
             <button onclick="app.navigate('home')" class="anime-btn bg-yellow-300 px-3 md:px-4 py-1.5 flex items-center text-sm border-2 border-gray-800 shadow-[2px_2px_0px_#1f2937]">
                 <i data-lucide="home" class="w-4 h-4 mr-1"></i> 回首頁
@@ -177,13 +175,11 @@
                 <i data-lucide="inbox" class="w-4 h-4 mr-1 hidden md:inline"></i> 郵件
             </button>
             
-            <!-- 管理員專屬：系統使用者管理 -->
             <button id="btn-nav-sysadmin" onclick="app.navigate('sysadmin')" class="anime-btn bg-purple-300 px-3 md:px-4 py-1.5 flex items-center text-sm hidden">
                 <i data-lucide="shield" class="w-4 h-4 mr-1 hidden md:inline"></i> 系統管理
             </button>
 
             <div class="w-px bg-gray-400 h-6 mx-1 md:mx-2"></div>
-            <!-- 登出與使用者顯示 -->
             <div class="flex items-center space-x-3 bg-gray-100 px-3 py-1 rounded-full border-2 border-gray-800">
                 <span id="navUsername" class="font-bold text-sm text-gray-800 hidden md:block"></span>
                 <button onclick="app.logout()" class="text-red-600 hover:text-red-800 font-bold text-sm flex items-center">
@@ -197,7 +193,6 @@
 
         <!-- ================= VIEW: HOME ================= -->
         <div id="view-home" class="absolute inset-0 overflow-y-auto p-8 flex flex-col items-center justify-center">
-            <!-- 【修改】加入 ID，以便後續動態載入客製化問候語 -->
             <h2 id="homeWelcomeMsg" class="text-3xl md:text-4xl font-bold mb-10 text-center bg-white px-8 py-3 anime-card inline-block">歡迎使用！您的資料完全獨立加密存放</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
                 <div onclick="app.navigate('settings')" class="anime-card bg-pink-50 p-8 flex flex-col items-center cursor-pointer hover:bg-pink-100 text-center">
@@ -229,7 +224,6 @@
             <div class="max-w-6xl mx-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block">系統使用者管理</h2>
-                    <!-- 【新增】新增使用者按鈕 -->
                     <button onclick="app.openSysAddModal()" class="anime-btn bg-green-300 px-4 py-2 flex items-center">
                         <i data-lucide="user-plus" class="w-5 h-5 mr-1"></i> 新增使用者
                     </button>
@@ -303,7 +297,7 @@
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">應用程式密碼</label>
-                                <input type="password" id="accPassword" required class="anime-input w-full">
+                                <input type="password" id="accPassword" required class="anime-input w-full" autocomplete="new-password">
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">自動檢查新郵件頻率 (秒)</label>
@@ -344,17 +338,10 @@
         <!-- ================= VIEW: CONTACTS ================= -->
         <div id="view-contacts" class="view-hidden absolute inset-0 overflow-y-auto p-8">
             <div class="max-w-6xl mx-auto">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                     <h2 class="text-3xl font-bold bg-white px-6 py-2 anime-card inline-block shrink-0">寄件人通訊錄 <span id="contactsCount" class="text-xl text-blue-600 ml-2"></span></h2>
-                    <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
-                        <select id="filterCompany" onchange="app.renderContacts()" class="anime-input py-1.5 px-3 text-sm flex-1 md:flex-none">
-                            <option value="">📁 所有單位</option>
-                        </select>
-                        <select id="filterGroup" onchange="app.renderContacts()" class="anime-input py-1.5 px-3 text-sm flex-1 md:flex-none">
-                            <option value="">🏷️ 所有群組</option>
-                        </select>
-                        <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1.5 px-3 flex-1 md:flex-none min-w-[150px]">
-                        
+                    
+                    <div class="flex flex-wrap gap-2 items-center w-full md:w-auto justify-end">
                         <button onclick="app.openGroupManagerModal()" class="anime-btn bg-blue-300 px-4 py-1.5 flex items-center shrink-0">
                             <i data-lucide="layers" class="w-5 h-5 mr-1"></i> 群組管理
                         </button>
@@ -364,16 +351,51 @@
                     </div>
                 </div>
 
+                <!-- 【新增】進階操作區：匯入/匯出與批次管理群組 -->
+                <div class="flex flex-wrap items-center gap-2 mb-4 bg-gray-100 p-3 rounded-lg border-2 border-gray-300">
+                    <select id="filterCompany" onchange="app.renderContacts()" class="anime-input py-1 px-2 text-sm max-w-[150px]">
+                        <option value="">📁 所有單位</option>
+                    </select>
+                    <select id="filterGroup" onchange="app.renderContacts()" class="anime-input py-1 px-2 text-sm max-w-[150px]">
+                        <option value="">🏷️ 所有群組</option>
+                    </select>
+                    <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1 px-2 text-sm flex-1 min-w-[120px]">
+                    
+                    <div class="w-px bg-gray-400 h-6 mx-1 hidden md:block"></div>
+                    
+                    <!-- 批次加入/退出按鈕 -->
+                    <button onclick="app.batchAddGroups()" class="anime-btn bg-indigo-200 px-3 py-1 text-sm flex items-center text-indigo-900 shadow-[1px_1px_0px_#1f2937]" title="將勾選的聯絡人批次加入群組">
+                        <i data-lucide="folder-plus" class="w-4 h-4 mr-1"></i> 批次加入
+                    </button>
+                    <button onclick="app.batchRemoveGroups()" class="anime-btn bg-red-200 px-3 py-1 text-sm flex items-center text-red-900 shadow-[1px_1px_0px_#1f2937]" title="將勾選的聯絡人移出群組">
+                        <i data-lucide="folder-minus" class="w-4 h-4 mr-1"></i> 批次退出
+                    </button>
+
+                    <div class="w-px bg-gray-400 h-6 mx-1 hidden md:block"></div>
+
+                    <!-- 匯出/匯入按鈕 -->
+                    <button onclick="document.getElementById('importContactInput').click()" class="anime-btn bg-teal-200 px-3 py-1 text-sm flex items-center text-teal-900 shadow-[1px_1px_0px_#1f2937]">
+                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> 匯入 CSV
+                    </button>
+                    <input type="file" id="importContactInput" class="hidden" accept=".csv" onchange="app.handleImportContacts(event)">
+                    <button onclick="app.exportContacts()" class="anime-btn bg-yellow-200 px-3 py-1 text-sm flex items-center text-yellow-900 shadow-[1px_1px_0px_#1f2937]">
+                        <i data-lucide="upload" class="w-4 h-4 mr-1"></i> 匯出 CSV
+                    </button>
+                </div>
+
                 <div class="anime-card bg-white p-4 overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[600px]">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
                         <thead>
                             <tr class="border-b-2 border-gray-800 bg-gray-100">
+                                <!-- 【新增】全選核取方塊 -->
+                                <th class="p-3 font-bold w-10 text-center"><input type="checkbox" class="anime-checkbox" id="contactSelectAll" onclick="app.toggleSelectAllContacts(this)"></th>
                                 <th class="p-3 font-bold">名稱</th>
+                                <th class="p-3 font-bold">性別</th>
+                                <th class="p-3 font-bold">職稱</th>
                                 <th class="p-3 font-bold">Email</th>
                                 <th class="p-3 font-bold">單位</th>
-                                <th class="p-3 font-bold">群組</th>
-                                <th class="p-3 font-bold">備註</th>
-                                <th class="p-3 font-bold w-24 text-center">操作</th>
+                                <th class="p-3 font-bold max-w-[200px]">群組</th>
+                                <th class="p-3 font-bold w-20 text-center">操作</th>
                             </tr>
                         </thead>
                         <tbody id="contactsTableBody" class="divide-y divide-gray-300">
@@ -547,7 +569,6 @@
                 </div>
                 <div>
                     <label class="block font-bold mb-1">密碼</label>
-                    <!-- 【修改】將 type 改為 text，讓管理者能直接看到明文密碼以協助查詢 -->
                     <input type="text" id="sysEditPassword" class="anime-input w-full" placeholder="設定或修改密碼">
                 </div>
                 <div>
@@ -595,6 +616,27 @@
         </div>
     </div>
 
+    <!-- Modal: 批次加入/退出群組 -->
+    <div id="batchGroupModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
+        <div class="anime-card bg-white p-6 w-full max-w-md">
+            <h3 class="text-2xl font-bold mb-4 border-b-2 border-gray-800 pb-2 flex justify-between items-center" id="batchGroupModalTitle">
+                批次管理群組
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-bold mb-1 text-gray-700">請選擇目標群組</label>
+                    <select id="batchGroupSelect" class="anime-input w-full cursor-pointer">
+                        <!-- 動態載入群組選項 -->
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                <button type="button" onclick="app.closeBatchGroupModal()" class="anime-btn bg-gray-200 px-6 py-2">取消</button>
+                <button type="button" onclick="app.executeBatchGroup()" class="anime-btn bg-blue-500 text-white px-6 py-2">確定執行</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: 新增/編輯聯絡人 -->
     <div id="contactModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4">
         <div class="anime-card bg-white p-6 w-full max-w-xl">
@@ -610,6 +652,22 @@
                         <label class="block font-bold mb-1">Email</label>
                         <input type="email" id="ctEmail" required class="anime-input w-full">
                     </div>
+                    
+                    <!-- 【新增】性別欄位 -->
+                    <div>
+                        <label class="block font-bold mb-1">性別</label>
+                        <div class="flex space-x-4 items-center h-[42px] bg-white border-2 border-gray-800 rounded-lg px-3 shadow-[2px_2px_0px_#d1d5db]">
+                            <label class="cursor-pointer flex items-center"><input type="radio" name="ctGender" value="M" class="mr-1"> 男</label>
+                            <label class="cursor-pointer flex items-center"><input type="radio" name="ctGender" value="F" class="mr-1"> 女</label>
+                            <label class="cursor-pointer flex items-center"><input type="radio" name="ctGender" value="O" class="mr-1"> 其他</label>
+                        </div>
+                    </div>
+                    <!-- 【新增】職稱欄位 -->
+                    <div>
+                        <label class="block font-bold mb-1">職稱</label>
+                        <input type="text" id="ctTitle" class="anime-input w-full" placeholder="例如: 經理, 工程師">
+                    </div>
+
                     <div class="md:col-span-2">
                         <label class="block font-bold mb-1">單位 (公司/部門)</label>
                         <input type="text" id="ctCompany" list="companyList" class="anime-input w-full" placeholder="輸入或選取現有單位">
@@ -746,7 +804,7 @@
         </div>
     </div>
 
-    <!-- 【新增】Modal: 畫面正中央的錯誤提示 (專門用於登入/註冊報錯) -->
+    <!-- Modal: 畫面正中央的錯誤提示 (專門用於登入/註冊報錯) -->
     <div id="centerAlertModal" class="fixed inset-0 bg-black/60 z-[220] hidden flex items-center justify-center p-4">
         <div class="anime-card bg-white p-6 w-full max-w-sm text-center transform transition-all">
             <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-red-500">
@@ -812,7 +870,9 @@
             isSyncing: false,
             totalInboxCount: 0,
             composeAttachments: [],
-            composeRecipients: [] 
+            composeRecipients: [],
+            selectedContactIds: new Set(), // 紀錄通訊錄批次勾選
+            batchGroupAction: 'add'
         };
 
         const escapeHTML = (str) => {
@@ -900,7 +960,6 @@
                 const un = document.getElementById('authUsername').value.trim();
                 const pw = document.getElementById('authPassword').value;
                 
-                // 【修改】將 Toast 替換為正中央錯誤視窗
                 if (!un) { this.showCenterAlert("請輸入您的使用者帳號！"); return; }
                 if (!pw) { this.showCenterAlert("請輸入您的登入密碼！"); return; }
                 
@@ -923,7 +982,6 @@
                             document.getElementById('loadingOverlay').classList.add('hidden');
                         }
                     } else {
-                        // 初始化最高管理員邏輯
                         if (un === 'lighminge' && pw === '888888') {
                             const newAdmin = {
                                 username: un,
@@ -954,11 +1012,13 @@
 
                 document.getElementById('navUsername').textContent = `使用者: ${profileData.username}`;
                 
-                // 【新增】動態處理登入時間與自訂歡迎問候語
                 const now = new Date();
                 const timeStr = now.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
                 const headerTimeEl = document.getElementById('headerLoginTime');
-                if (headerTimeEl) headerTimeEl.textContent = `登入時間：${timeStr}`;
+                if (headerTimeEl) {
+                    headerTimeEl.textContent = `登入時間：${timeStr}`;
+                    headerTimeEl.classList.remove('hidden');
+                }
 
                 const hour = now.getHours();
                 let greeting = "早安";
@@ -970,7 +1030,6 @@
 
                 if (profileData.role === 'admin') {
                     document.getElementById('btn-nav-sysadmin').classList.remove('hidden');
-                    // 自動移轉資料邏輯
                     if (!profileData.migrated && username === 'lighminge') {
                         await this.migratePublicDataToAdmin(username);
                     }
@@ -990,7 +1049,6 @@
                 const un = document.getElementById('regUsername').value.trim();
                 const pw = document.getElementById('regPassword').value;
                 
-                // 【修改】將 Toast 替換為正中央錯誤視窗
                 if (!un) { this.showCenterAlert("請填寫您想要的使用者帳號！"); return; }
                 if (!pw) { this.showCenterAlert("請設定您的密碼！"); return; }
                 if (pw.length < 6) { this.showCenterAlert("為了安全起見，密碼長度至少需要 6 碼！"); return; }
@@ -1023,7 +1081,6 @@
                         createdAt: Date.now()
                     });
 
-                    // 註冊成功依然使用 Toast 顯示於角落，不打擾視線
                     showToast("✅ 註冊申請已送出！目前狀態為「申請中」，請等待管理員審核。");
                     this.closeRegisterModal();
                     document.getElementById('authUsername').value = un; 
@@ -1047,6 +1104,10 @@
                 
                 document.getElementById('authOverlay').classList.remove('hidden');
                 document.getElementById('nav-buttons').classList.add('hidden');
+                
+                const headerTimeEl = document.getElementById('headerLoginTime');
+                if(headerTimeEl) headerTimeEl.classList.add('hidden');
+                
                 ['view-home', 'view-settings', 'view-contacts', 'view-webmail', 'view-sysadmin'].forEach(id => {
                     const el = document.getElementById(id);
                     if(el) el.classList.add('view-hidden');
@@ -1310,7 +1371,6 @@
                 unInput.readOnly = true;
                 unInput.classList.add('bg-gray-100', 'cursor-not-allowed');
                 
-                // 【修改】直接顯示原密碼，方便管理者查詢，並修改 Placeholder
                 document.getElementById('sysEditPassword').value = su.password || '';
                 document.getElementById('sysEditPassword').placeholder = '在此修改密碼';
                 
@@ -1620,6 +1680,12 @@
                     document.getElementById('ctId').value = c.id;
                     document.getElementById('ctName').value = c.name;
                     document.getElementById('ctEmail').value = c.email;
+                    document.getElementById('ctTitle').value = c.title || '';
+                    
+                    const genderVal = c.gender || 'O';
+                    const genderRadios = document.getElementsByName('ctGender');
+                    for (let r of genderRadios) { if (r.value === genderVal) r.checked = true; }
+
                     document.getElementById('ctCompany').value = c.company || '';
                     document.getElementById('ctNote').value = c.note || '';
                     if (c.groups) contactGroups = c.groups;
@@ -1629,6 +1695,8 @@
                     document.getElementById('ctId').value = '';
                     document.getElementById('ctName').value = '';
                     document.getElementById('ctEmail').value = '';
+                    document.getElementById('ctTitle').value = '';
+                    document.querySelector('input[name="ctGender"][value="O"]').checked = true;
                     document.getElementById('ctCompany').value = '';
                     document.getElementById('ctNote').value = '';
                 }
@@ -1650,17 +1718,23 @@
                 const id = document.getElementById('ctId').value;
                 const groupCheckboxes = document.querySelectorAll('input[name="ctGroups"]:checked');
                 const selectedGroups = Array.from(groupCheckboxes).map(cb => cb.value);
+                const genderRadio = document.querySelector('input[name="ctGender"]:checked');
 
                 const data = {
                     name: document.getElementById('ctName').value,
                     email: document.getElementById('ctEmail').value,
+                    gender: genderRadio ? genderRadio.value : 'O',
+                    title: document.getElementById('ctTitle').value,
                     company: document.getElementById('ctCompany').value,
                     groups: selectedGroups,
                     note: document.getElementById('ctNote').value
                 };
                 try {
                     if (id) await updateDoc(getDoc('contacts', id), data);
-                    else await addDoc(getCol('contacts'), data);
+                    else {
+                        data.createdAt = Date.now();
+                        await addDoc(getCol('contacts'), data);
+                    }
                     showToast("聯絡人已儲存");
                     this.closeContactModal();
                 } catch (e) { showToast("儲存失敗"); }
@@ -1670,6 +1744,235 @@
                 if (!(await app.customConfirm("刪除聯絡人", "確定要刪除此聯絡人？"))) return;
                 await deleteDoc(getDoc('contacts', id));
                 showToast("聯絡人已刪除");
+                state.selectedContactIds.delete(id);
+                this.renderContacts();
+            },
+
+            // --- 聯絡人批次選擇 ---
+            toggleSelectAllContacts: function(cb) {
+                state.selectedContactIds.clear();
+                if(cb.checked) {
+                    const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
+                    const filterComp = document.getElementById('filterCompany')?.value;
+                    const filterGrp = document.getElementById('filterGroup')?.value; 
+                    
+                    const filtered = state.contacts.filter(c => {
+                        const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
+                        const matchComp = filterComp ? c.company === filterComp : true;
+                        let inGroup = true;
+                        if (filterGrp) {
+                            if (c.groups && Array.isArray(c.groups)) inGroup = c.groups.includes(filterGrp);
+                            else inGroup = false; 
+                        }
+                        return matchTerm && matchComp && inGroup;
+                    });
+                    
+                    filtered.forEach(c => state.selectedContactIds.add(c.id));
+                }
+                this.renderContacts();
+            },
+
+            toggleContactSelect: function(cb, id) {
+                if(cb.checked) state.selectedContactIds.add(id);
+                else state.selectedContactIds.delete(id);
+                
+                const allCb = document.getElementById('contactSelectAll');
+                // We won't strictly manage indeterminate state here for simplicity, just uncheck if not all selected
+                if(!cb.checked && allCb) allCb.checked = false;
+            },
+            
+            clearContactSelection: function() {
+                state.selectedContactIds.clear();
+                const allCb = document.getElementById('contactSelectAll');
+                if(allCb) allCb.checked = false;
+                this.renderContacts();
+            },
+
+            // --- 聯絡人批次管理群組 ---
+            batchAddGroups: function() {
+                if (state.selectedContactIds.size === 0) { showToast("請先勾選下方的聯絡人"); return; }
+                this.openBatchGroupModal('add');
+            },
+            batchRemoveGroups: function() {
+                if (state.selectedContactIds.size === 0) { showToast("請先勾選下方的聯絡人"); return; }
+                this.openBatchGroupModal('remove');
+            },
+            
+            openBatchGroupModal: function(action) {
+                if (state.groups.length === 0) { showToast("目前沒有群組，請先新增"); return; }
+                
+                state.batchGroupAction = action;
+                document.getElementById('batchGroupModalTitle').textContent = action === 'add' ? `批次加入群組 (共 ${state.selectedContactIds.size} 人)` : `批次退出群組 (共 ${state.selectedContactIds.size} 人)`;
+                
+                const sel = document.getElementById('batchGroupSelect');
+                sel.innerHTML = '<option value="">請選擇目標群組...</option>';
+                state.groups.forEach(g => {
+                    sel.innerHTML += `<option value="${g.id}">${escapeHTML(g.name)}</option>`;
+                });
+                
+                document.getElementById('batchGroupModal').classList.remove('hidden');
+            },
+            
+            closeBatchGroupModal: function() {
+                document.getElementById('batchGroupModal').classList.add('hidden');
+            },
+            
+            executeBatchGroup: async function() {
+                const groupId = document.getElementById('batchGroupSelect').value;
+                if (!groupId) { showToast("請選擇目標群組"); return; }
+                
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                
+                const batch = writeBatch(db);
+                let updateCount = 0;
+                
+                state.selectedContactIds.forEach(id => {
+                    const c = state.contacts.find(x => x.id === id);
+                    if (c) {
+                        let groups = c.groups || [];
+                        let changed = false;
+                        
+                        if (state.batchGroupAction === 'add') {
+                            if (!groups.includes(groupId)) {
+                                groups.push(groupId);
+                                changed = true;
+                            }
+                        } else {
+                            const newGroups = groups.filter(g => g !== groupId);
+                            if (newGroups.length !== groups.length) {
+                                groups = newGroups;
+                                changed = true;
+                            }
+                        }
+                        
+                        if (changed) {
+                            const ref = getDoc('contacts', id);
+                            batch.update(ref, { groups });
+                            updateCount++;
+                        }
+                    }
+                });
+                
+                try {
+                    if (updateCount > 0) {
+                        await batch.commit();
+                        showToast(`已成功更新 ${updateCount} 位聯絡人的群組設定！`);
+                    } else {
+                        showToast("選取的聯絡人已符合設定，無需更新。");
+                    }
+                    this.closeBatchGroupModal();
+                    this.clearContactSelection();
+                } catch (e) {
+                    showToast("更新失敗：" + e.message);
+                } finally {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                }
+            },
+
+            // --- 匯出 CSV ---
+            exportContacts: function() {
+                if (state.contacts.length === 0) { showToast("目前沒有聯絡人可以匯出"); return; }
+                
+                // 相容於常見郵件系統的 CSV 標頭
+                let csvContent = "Name,E-mail Address,Gender,Job Title,Company,Notes\n";
+                
+                state.contacts.forEach(c => {
+                    let genderStr = c.gender === 'M' ? '男' : (c.gender === 'F' ? '女' : '其他');
+                    // 處理文字內的雙引號，避免 CSV 格式錯亂
+                    const s = (str) => `"${(str || '').replace(/"/g, '""')}"`;
+                    
+                    let row = `${s(c.name)},${s(c.email)},${s(genderStr)},${s(c.title)},${s(c.company)},${s(c.note)}`;
+                    csvContent += row + "\n";
+                });
+                
+                // 加入 UTF-8 BOM 讓 Excel 能正確辨識中文
+                const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); 
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OmniMail_Contacts_${new Date().getTime()}.csv`;
+                a.click();
+            },
+
+            // --- 匯入 CSV ---
+            handleImportContacts: function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const text = e.target.result;
+                        const lines = text.split(/\r?\n/);
+                        if (lines.length < 2) { 
+                            showToast("無法解析 CSV 檔案，請確認格式"); 
+                            document.getElementById('loadingOverlay').classList.add('hidden');
+                            return; 
+                        }
+                        
+                        // 嘗試解析標頭
+                        const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+                        const batch = writeBatch(db);
+                        let count = 0;
+                        
+                        for (let i = 1; i < lines.length; i++) {
+                            if (!lines[i].trim()) continue;
+                            
+                            // 簡易的正則表達式，處理包含逗號的引號字串
+                            const rowVals = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').trim());
+                            
+                            let name='', email='', gender='O', title='', company='', note='';
+                            
+                            headers.forEach((h, idx) => {
+                                const val = rowVals[idx] || '';
+                                if (!val) return;
+                                
+                                if (h === 'name' || h.includes('first name') || h.includes('名稱') || h.includes('姓名')) name = val;
+                                else if (h.includes('mail') || h.includes('email') || h.includes('信箱')) email = val;
+                                else if (h.includes('gender') || h.includes('性別')) {
+                                    if (val.includes('男') || val.toLowerCase() === 'm' || val.toLowerCase() === 'male') gender = 'M';
+                                    else if (val.includes('女') || val.toLowerCase() === 'f' || val.toLowerCase() === 'female') gender = 'F';
+                                }
+                                else if (h.includes('title') || h.includes('職稱')) title = val;
+                                else if (h.includes('company') || h.includes('organization') || h.includes('單位') || h.includes('公司')) company = val;
+                                else if (h.includes('note') || h.includes('備註')) note = val;
+                            });
+                            
+                            // 只要有 Name 或 Email 就存入
+                            if (name || email) { 
+                                const newRef = doc(collection(db, 'artifacts', appId, 'public', 'data', `${currentAppUser}_contacts`));
+                                batch.set(newRef, { 
+                                    name: name || '未知聯絡人', 
+                                    email: email, 
+                                    gender: gender, 
+                                    title: title, 
+                                    company: company, 
+                                    note: note, 
+                                    groups: [], 
+                                    createdAt: Date.now() 
+                                });
+                                count++;
+                            }
+                        }
+                        
+                        if (count > 0) {
+                            await batch.commit();
+                            showToast(`成功匯入 ${count} 筆聯絡人資料！`);
+                        } else {
+                            showToast("未找到符合標準格式的聯絡人資料");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showToast("匯入過程中發生錯誤");
+                    } finally {
+                        document.getElementById('importContactInput').value = '';
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                    }
+                };
+                // 支援中文的檔案讀取 (預設為 UTF-8，若亂碼可能是 Excel 預設的 Big5，這裡先採多數標準 UTF-8)
+                reader.readAsText(file);
             },
 
             renderContacts: function() {
@@ -1695,8 +1998,14 @@
                 const countEl = document.getElementById('contactsCount');
                 if (countEl) countEl.textContent = `(篩選結果: ${filtered.length} 筆)`;
                 
+                // 更新全選 Checkbox 狀態
+                const allCb = document.getElementById('contactSelectAll');
+                if (allCb) {
+                    allCb.checked = filtered.length > 0 && filtered.every(c => state.selectedContactIds.has(c.id));
+                }
+                
                 if (filtered.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
                     return;
                 }
                 
@@ -1706,14 +2015,21 @@
                         return g ? `<span class="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded border border-gray-400 font-bold inline-block m-0.5">${escapeHTML(g.name)}</span>` : '';
                     }).join('');
 
+                    const isChecked = state.selectedContactIds.has(c.id);
+                    const genderIcon = c.gender === 'M' ? '<span class="text-blue-500 font-bold">男</span>' : (c.gender === 'F' ? '<span class="text-pink-500 font-bold">女</span>' : '<span class="text-gray-500">其他</span>');
+
                     tbody.innerHTML += `
-                        <tr class="hover:bg-green-50 transition">
+                        <tr class="hover:bg-green-50 transition ${isChecked ? 'bg-yellow-100' : ''}">
+                            <td class="p-3 text-center">
+                                <input type="checkbox" class="anime-checkbox" ${isChecked ? 'checked' : ''} onclick="app.toggleContactSelect(this, '${c.id}')">
+                            </td>
                             <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
+                            <td class="p-3">${genderIcon}</td>
+                            <td class="p-3 text-gray-700">${escapeHTML(c.title || '-')}</td>
                             <td class="p-3 text-gray-600">${escapeHTML(c.email)}</td>
                             <td class="p-3 text-gray-600">${escapeHTML(c.company || '-')}</td>
-                            <td class="p-3">${groupNames || '-'}</td>
-                            <td class="p-3 text-sm text-gray-500">${escapeHTML(c.note || '-')}</td>
-                            <td class="p-3 text-center space-x-2">
+                            <td class="p-3 max-w-[200px]">${groupNames || '-'}</td>
+                            <td class="p-3 text-center space-x-2 w-20">
                                 <button onclick="app.openContactModal('${c.id}')" class="text-blue-600 hover:text-blue-800"><i data-lucide="edit" class="w-4 h-4"></i></button>
                                 <button onclick="app.deleteContact('${c.id}')" class="text-red-600 hover:text-red-800"><i data-lucide="trash" class="w-4 h-4"></i></button>
                             </td>
