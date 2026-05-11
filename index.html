@@ -90,6 +90,11 @@
             pointer-events: none;
             display: block;
         }
+
+        /* 【新增】控制 reCAPTCHA 圖示隱藏的 CSS */
+        body.hide-recaptcha .grecaptcha-badge {
+            visibility: hidden !important;
+        }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col">
@@ -1199,6 +1204,9 @@
                 document.getElementById('nav-buttons').classList.remove('hidden');
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 
+                // 【新增】登入成功後，隱藏 reCAPTCHA 圖示
+                document.body.classList.add('hide-recaptcha');
+                
                 this.setupListeners();
                 this.navigate('home');
             },
@@ -1351,6 +1359,9 @@
                 document.getElementById('authPwCount').textContent = '已輸入 0 個字';
                 document.getElementById('authPwEye').setAttribute('data-lucide', 'eye');
                 lucide.createIcons();
+                
+                // 【新增】登出後，恢復顯示 reCAPTCHA 圖示以保護登入介面
+                document.body.classList.remove('hide-recaptcha');
                 
                 showToast("已成功登出");
             },
