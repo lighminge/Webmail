@@ -426,6 +426,8 @@
                                 <th class="p-3 font-bold w-12 text-center border-r border-gray-300">
                                     <input type="checkbox" class="anime-checkbox" id="contactSelectAll" onclick="app.toggleSelectAllContacts(this)" title="全選/取消全選目前頁面的聯絡人">
                                 </th>
+                                <!-- 【新增】加入序號欄位 -->
+                                <th class="p-3 font-bold w-16 text-center">序號</th>
                                 <th class="p-3 font-bold">名稱</th>
                                 <th class="p-3 font-bold">性別</th>
                                 <th class="p-3 font-bold">職稱</th>
@@ -774,6 +776,8 @@
                             <th class="p-2 w-12 text-center border-r border-gray-300">
                                 <input type="checkbox" class="anime-checkbox !w-4 !h-4" id="csSelectAllCb" onclick="app.toggleSelectAllCS(this)" title="全選/取消全選目前頁面的聯絡人">
                             </th>
+                            <!-- 【新增】加入序號欄位 -->
+                            <th class="p-2 font-bold text-sm text-center w-12">序號</th>
                             <th class="p-2 font-bold text-sm">聯絡人資訊</th>
                         </tr>
                     </thead>
@@ -2238,7 +2242,8 @@
                 tbody.innerHTML = '';
                 
                 if (filtered.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
+                    // 【修改】因為增加了一欄序號，將 colspan 改為 9
+                    tbody.innerHTML = '<tr><td colspan="9" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
                     const allCb = document.getElementById('contactSelectAll');
                     if (allCb) allCb.checked = false;
                     return;
@@ -2249,13 +2254,15 @@
                 const endIdx = startIdx + 50;
                 const pageItems = filtered.slice(startIdx, endIdx);
                 
-                // 【修改】更新全選 Checkbox 狀態，只檢查「當前頁面」是否全被選取
                 const allCb = document.getElementById('contactSelectAll');
                 if (allCb) {
                     allCb.checked = pageItems.length > 0 && pageItems.every(c => state.selectedContactIds.has(c.id));
                 }
 
-                pageItems.forEach(c => {
+                // 【修改】加入 index 以便計算序號
+                pageItems.forEach((c, index) => {
+                    const serialNum = startIdx + index + 1; // 依據分頁計算實際序號
+                    
                     const groupNames = (c.groups || []).map(gid => {
                         const g = state.groups.find(x => x.id === gid);
                         return g ? `<span class="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded border border-gray-400 font-bold inline-block m-0.5">${escapeHTML(g.name)}</span>` : '';
@@ -2264,7 +2271,6 @@
                     const isChecked = state.selectedContactIds.has(c.id);
                     const genderIcon = c.gender === 'M' ? '<span class="text-blue-500 font-bold">男</span>' : (c.gender === 'F' ? '<span class="text-pink-500 font-bold">女</span>' : '<span class="text-gray-500">其他</span>');
 
-                    // 【修改】將 border-left 移至第一個 td 內，解決 table border-collapse 導致其他列邊框被吃掉的問題
                     const rowClass = isChecked ? 'bg-yellow-200' : 'hover:bg-green-50';
                     const leftBorderClass = isChecked ? 'border-l-[6px] border-yellow-500' : 'border-l-[6px] border-transparent';
 
@@ -2273,6 +2279,8 @@
                             <td class="p-3 text-center border-r border-gray-300 ${leftBorderClass}">
                                 <input type="checkbox" class="anime-checkbox" ${isChecked ? 'checked' : ''} onclick="app.toggleContactSelect(this, '${c.id}')">
                             </td>
+                            <!-- 【新增】顯示序號 -->
+                            <td class="p-3 text-center text-gray-500 font-bold">${serialNum}</td>
                             <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
                             <td class="p-3">${genderIcon}</td>
                             <td class="p-3 text-gray-700">${escapeHTML(c.title || '-')}</td>
@@ -2538,7 +2546,8 @@
                 if (pageInfoEl) pageInfoEl.textContent = `第 ${state.csPage} / ${totalPages} 頁`;
 
                 if (filtered.length === 0) {
-                    listEl.innerHTML = '<tr><td colspan="2" class="p-6 text-center text-gray-500 font-bold">查無符合條件的聯絡人</td></tr>';
+                    // 【修改】因為增加了一欄序號，將 colspan 改為 3
+                    listEl.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-500 font-bold">查無符合條件的聯絡人</td></tr>';
                     const allCb = document.getElementById('csSelectAllCb');
                     if (allCb) allCb.checked = false;
                     return;
@@ -2553,7 +2562,10 @@
                     allCb.checked = pageItems.length > 0 && pageItems.every(c => state.csSelected.has(c.email));
                 }
 
-                pageItems.forEach(c => {
+                // 【修改】加入 index 以便計算序號
+                pageItems.forEach((c, index) => {
+                    const serialNum = startIdx + index + 1; // 依據分頁計算實際序號
+                    
                     const isChecked = state.csSelected.has(c.email);
                     const safeName = escapeHTML(c.name);
                     const safeEmail = escapeHTML(c.email);
@@ -2569,6 +2581,8 @@
                             <td class="p-2 text-center border-r border-gray-200 ${leftBorderClass}" onclick="event.stopPropagation()">
                                 <input type="checkbox" id="cscb_${c.id}" class="anime-checkbox !w-4 !h-4" ${isChecked ? 'checked' : ''} onclick="app.toggleCSContact(this, '${safeNameForJs}', '${safeEmailForJs}')">
                             </td>
+                            <!-- 【新增】顯示序號 -->
+                            <td class="p-2 text-center text-gray-500 font-bold text-sm">${serialNum}</td>
                             <td class="p-2">
                                 <div class="flex-1">
                                     <p class="font-bold text-gray-800">${safeName} <span class="text-sm font-normal text-gray-500 ml-2">&lt;${safeEmail}&gt;</span></p>
