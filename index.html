@@ -1291,6 +1291,49 @@
                 this.stopAutoSync();
                 this.clearListeners();
                 
+                // 【新增】徹底清除記憶體中的所有暫存資料，防止狀態殘留給下一位使用者
+                state.sysUsers = [];
+                state.accounts = [];
+                state.contacts = [];
+                state.groups = [];
+                state.localEmails = [];
+                state.imapEmails = [];
+                state.selectedEmailIds.clear();
+                state.lastImapIds.clear();
+                state.isSyncing = false;
+                state.totalInboxCount = 0;
+                state.composeAttachments = [];
+                state.composeRecipients = [];
+                state.selectedContactIds.clear();
+                state.batchGroupAction = 'add';
+                state.contactPage = 1;
+                state.csPage = 1;
+                state.csSelected.clear();
+                state.batchRecipients = [];
+                state.viewingEmail = null;
+                state.currentFolder = 'inbox';
+                
+                // 【新增】清空 Webmail 畫面的殘留數據
+                const wmEmailList = document.getElementById('wm-email-list');
+                if(wmEmailList) wmEmailList.innerHTML = '';
+                const wmEmptyState = document.getElementById('wm-empty-state');
+                if(wmEmptyState) wmEmptyState.classList.remove('hidden');
+                
+                const wmTotalCount = document.getElementById('wm-total-count');
+                if(wmTotalCount) wmTotalCount.textContent = '0';
+                const wmUnreadCount = document.getElementById('wm-unread-count');
+                if(wmUnreadCount) wmUnreadCount.textContent = '0';
+                
+                const badgeInbox = document.getElementById('wm-badge-inbox');
+                if(badgeInbox) badgeInbox.classList.add('hidden');
+                const badgeDrafts = document.getElementById('wm-badge-drafts');
+                if(badgeDrafts) badgeDrafts.classList.add('hidden');
+                
+                const wmAccountSelect = document.getElementById('wmAccountSelect');
+                if(wmAccountSelect) wmAccountSelect.innerHTML = '<option value="">載入中...</option>';
+                
+                this.closeEmailPreview();
+
                 document.getElementById('authOverlay').classList.remove('hidden');
                 document.getElementById('nav-buttons').classList.add('hidden');
                 
