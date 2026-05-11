@@ -1667,18 +1667,18 @@
 
                 const updateComp = (el, val) => {
                     if(!el) return;
-                    el.innerHTML = '<option value="">📁 所有單位</option>';
+                    el.innerHTML = '<option value="">📁 所有單位</option><option value="__NONE__">🚫 無單位</option>';
                     companies.forEach(company => { el.innerHTML += `<option value="${escapeHTML(company)}">${escapeHTML(company)}</option>`; });
-                    if(companies.has(val)) el.value = val;
+                    if(val === '__NONE__' || companies.has(val)) el.value = val;
                 };
                 updateComp(compSelect, compSelect?.value);
                 updateComp(csCompSelect, csCompSelect?.value);
 
                 const updateGrp = (el, val) => {
                     if(!el) return;
-                    el.innerHTML = '<option value="">🏷️ 所有群組</option>';
+                    el.innerHTML = '<option value="">🏷️ 所有群組</option><option value="__NONE__">🚫 無群組</option>';
                     state.groups.forEach(g => { el.innerHTML += `<option value="${g.id}">${escapeHTML(g.name)}</option>`; });
-                    if(state.groups.find(x => x.id === val)) el.value = val;
+                    if(val === '__NONE__' || state.groups.find(x => x.id === val)) el.value = val;
                 };
                 updateGrp(grpSelect, grpSelect?.value);
                 updateGrp(csGrpSelect, csGrpSelect?.value);
@@ -1776,18 +1776,25 @@
                 
                 return state.contacts.filter(c => {
                     const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
-                    const matchComp = filterComp ? c.company === filterComp : true;
+                    
+                    let matchComp = true;
+                    if (filterComp === '__NONE__') matchComp = !c.company || c.company.trim() === '';
+                    else if (filterComp) matchComp = c.company === filterComp;
+                    
                     let inGroup = true;
-                    if (filterGrp) {
+                    if (filterGrp === '__NONE__') inGroup = !c.groups || c.groups.length === 0;
+                    else if (filterGrp) {
                         if (c.groups && Array.isArray(c.groups)) inGroup = c.groups.includes(filterGrp);
                         else inGroup = false; 
                     }
+                    
                     return matchTerm && matchComp && inGroup;
                 });
             },
 
             filterContactsChanged: function() {
                 state.contactPage = 1; // 篩選條件改變時，強制回到第一頁
+                state.selectedContactIds.clear(); // 變更查詢條件後，清空所有已勾選的聯絡人
                 this.renderContacts();
             },
 
@@ -2184,9 +2191,13 @@
                 listEl.innerHTML = '';
 
                 const filtered = state.contacts.filter(c => {
-                    const matchComp = compFilter ? c.company === compFilter : true;
+                    let matchComp = true;
+                    if (compFilter === '__NONE__') matchComp = !c.company || c.company.trim() === '';
+                    else if (compFilter) matchComp = c.company === compFilter;
+                    
                     let matchGrp = true;
-                    if (grpFilter) {
+                    if (grpFilter === '__NONE__') matchGrp = !c.groups || c.groups.length === 0;
+                    else if (grpFilter) {
                         if (c.groups && Array.isArray(c.groups)) matchGrp = c.groups.includes(grpFilter);
                         else matchGrp = false;
                     }
