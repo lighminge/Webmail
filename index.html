@@ -803,10 +803,15 @@
                 <input type="hidden" id="composeReplyToId">
                 
                 <div class="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-2">
-                    <span class="font-bold w-20 shrink-0 mt-2">收件者</span>
-                    <div class="anime-input flex-1 flex flex-wrap gap-1 p-1.5 items-center cursor-text min-h-[42px] bg-white border-2 border-[var(--comic-border)] rounded-lg shadow-[2px_2px_0px_#d1d5db]" onclick="document.getElementById('composeToInput').focus()">
-                        <div id="composeToTags" class="flex flex-wrap gap-1 empty:hidden"></div>
-                        <input type="text" id="composeToInput" class="outline-none flex-1 min-w-[150px] bg-transparent text-sm py-1" placeholder="輸入 email (按 Enter 加入) 或選取通訊錄 ➔" onblur="app.addRecipientFromInput()" onkeydown="if(event.key==='Enter'||event.key===','){event.preventDefault();app.addRecipientFromInput();}">
+                    <!-- 【修改】加入收件人數統計 -->
+                    <div class="flex flex-col w-20 shrink-0 mt-2">
+                        <span class="font-bold">收件者</span>
+                        <span id="composeRecipientCount" class="text-xs text-blue-600 font-bold mt-1">0 人</span>
+                    </div>
+                    <!-- 【修改】優化收件者顯示區，加上最大高度(max-h-24)與滾動條，避免撐爆下方版面 -->
+                    <div class="anime-input flex-1 flex flex-col p-1.5 cursor-text bg-white border-2 border-[var(--comic-border)] rounded-lg shadow-[2px_2px_0px_#d1d5db]" onclick="document.getElementById('composeToInput').focus()">
+                        <div id="composeToTags" class="flex flex-wrap gap-1 empty:hidden max-h-24 overflow-y-auto w-full mb-1 pb-1"></div>
+                        <input type="text" id="composeToInput" class="outline-none w-full bg-transparent text-sm py-1" placeholder="輸入 email (按 Enter 加入) 或選取通訊錄 ➔" onblur="app.addRecipientFromInput()" onkeydown="if(event.key==='Enter'||event.key===','){event.preventDefault();app.addRecipientFromInput();}">
                     </div>
                     <button type="button" onclick="app.openContactSelector()" class="anime-btn bg-green-200 hover:bg-green-300 px-4 py-2 flex items-center shrink-0 mt-0 sm:mt-1">
                         <i data-lucide="book-open" class="w-4 h-4 mr-1"></i> 📖 開啟通訊錄
@@ -3272,7 +3277,12 @@
                 this.renderRecipients();
             },
             
-            removeRecipient: function(index) {
+            // 【修改】加入 event 參數，防止點擊刪除時觸發外層的 focus 事件導致畫面跳躍
+            removeRecipient: function(event, index) {
+                if (event) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                }
                 state.composeRecipients.splice(index, 1);
                 this.renderRecipients();
             },
@@ -3280,16 +3290,31 @@
             renderRecipients: function() {
                 const container = document.getElementById('composeToTags');
                 if (!container) return;
+                
+                // 【新增】記住當前的滾動條位置，避免重新渲染時捲軸重置跳躍
+                const scrollTop = container.scrollTop;
+                
                 container.innerHTML = '';
                 state.composeRecipients.forEach((rec, index) => {
                     container.innerHTML += `
                         <div class="flex items-center bg-blue-100 text-blue-800 border border-blue-300 rounded px-2 py-0.5 text-sm shadow-[1px_1px_0px_#93c5fd] shrink-0">
                             <span class="truncate max-w-[200px]">${escapeHTML(rec)}</span>
-                            <button type="button" onclick="app.removeRecipient(${index})" class="ml-1 text-blue-500 hover:text-red-500 font-bold focus:outline-none"><i data-lucide="x" class="w-3 h-3"></i></button>
+                            <button type="button" onclick="app.removeRecipient(event, ${index})" class="ml-1 text-blue-500 hover:text-red-500 font-bold focus:outline-none"><i data-lucide="x" class="w-3 h-3"></i></button>
                         </div>
                     `;
                 });
                 lucide.createIcons();
+                
+                // 【新增】渲染完畢後恢復滾動條位置
+                requestAnimationFrame(() => {
+                    container.scrollTop = scrollTop;
+                });
+                
+                // 【新增】更新左側的收件者人數顯示
+                const countEl = document.getElementById('composeRecipientCount');
+                if (countEl) {
+                    countEl.textContent = `${state.composeRecipients.length} 人`;
+                }
             },
             
             addRecipientFromInput: function() {
