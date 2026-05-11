@@ -351,24 +351,27 @@
                     </div>
                 </div>
 
-                <!-- 【新增】進階操作區：匯入/匯出與批次管理群組 -->
+                <!-- 進階操作區：匯入/匯出與批次管理群組 -->
                 <div class="flex flex-wrap items-center gap-2 mb-4 bg-gray-100 p-3 rounded-lg border-2 border-gray-300">
-                    <select id="filterCompany" onchange="app.renderContacts()" class="anime-input py-1 px-2 text-sm max-w-[150px]">
+                    <select id="filterCompany" onchange="app.filterContactsChanged()" class="anime-input py-1 px-2 text-sm max-w-[150px]">
                         <option value="">📁 所有單位</option>
                     </select>
-                    <select id="filterGroup" onchange="app.renderContacts()" class="anime-input py-1 px-2 text-sm max-w-[150px]">
+                    <select id="filterGroup" onchange="app.filterContactsChanged()" class="anime-input py-1 px-2 text-sm max-w-[150px]">
                         <option value="">🏷️ 所有群組</option>
                     </select>
-                    <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.renderContacts()" class="anime-input py-1 px-2 text-sm flex-1 min-w-[120px]">
+                    <input type="text" id="contactSearch" placeholder="搜尋姓名/Email..." onkeyup="app.filterContactsChanged()" class="anime-input py-1 px-2 text-sm flex-1 min-w-[120px]">
                     
                     <div class="w-px bg-gray-400 h-6 mx-1 hidden md:block"></div>
                     
-                    <!-- 批次加入/退出按鈕 -->
+                    <!-- 批次加入/退出/刪除按鈕 -->
                     <button onclick="app.batchAddGroups()" class="anime-btn bg-indigo-200 px-3 py-1 text-sm flex items-center text-indigo-900 shadow-[1px_1px_0px_#1f2937]" title="將勾選的聯絡人批次加入群組">
                         <i data-lucide="folder-plus" class="w-4 h-4 mr-1"></i> 批次加入
                     </button>
-                    <button onclick="app.batchRemoveGroups()" class="anime-btn bg-red-200 px-3 py-1 text-sm flex items-center text-red-900 shadow-[1px_1px_0px_#1f2937]" title="將勾選的聯絡人移出群組">
+                    <button onclick="app.batchRemoveGroups()" class="anime-btn bg-orange-200 px-3 py-1 text-sm flex items-center text-orange-900 shadow-[1px_1px_0px_#1f2937]" title="將勾選的聯絡人移出群組">
                         <i data-lucide="folder-minus" class="w-4 h-4 mr-1"></i> 批次退出
+                    </button>
+                    <button onclick="app.batchDeleteContacts()" class="anime-btn bg-red-300 px-3 py-1 text-sm flex items-center text-red-900 shadow-[1px_1px_0px_#1f2937]" title="徹底刪除勾選的聯絡人">
+                        <i data-lucide="trash-2" class="w-4 h-4 mr-1"></i> 批次刪除
                     </button>
 
                     <div class="w-px bg-gray-400 h-6 mx-1 hidden md:block"></div>
@@ -378,17 +381,32 @@
                         <i data-lucide="download" class="w-4 h-4 mr-1"></i> 匯入 CSV
                     </button>
                     <input type="file" id="importContactInput" class="hidden" accept=".csv" onchange="app.handleImportContacts(event)">
-                    <button onclick="app.exportContacts()" class="anime-btn bg-yellow-200 px-3 py-1 text-sm flex items-center text-yellow-900 shadow-[1px_1px_0px_#1f2937]">
-                        <i data-lucide="upload" class="w-4 h-4 mr-1"></i> 匯出 CSV
+                    <button onclick="app.exportContacts()" class="anime-btn bg-yellow-200 px-3 py-1 text-sm flex items-center text-yellow-900 shadow-[1px_1px_0px_#1f2937]" title="匯出目前查詢結果">
+                        <i data-lucide="upload" class="w-4 h-4 mr-1"></i> 匯出查詢
                     </button>
                 </div>
 
-                <div class="anime-card bg-white p-4 overflow-x-auto">
+                <div class="anime-card bg-white overflow-x-auto shadow-lg">
+                    <!-- 【新增】選取狀態與分頁控制列 -->
+                    <div class="bg-blue-50 border-b-2 border-gray-800 p-3 flex flex-col sm:flex-row justify-between items-center gap-2">
+                        <div class="font-bold text-gray-800 flex items-center">
+                            <i data-lucide="check-square" class="w-5 h-5 mr-2 text-blue-600"></i>
+                            已選取 <span id="contactSelectedCount" class="text-blue-700 text-xl mx-2">0</span> 人
+                            <span class="text-xs text-gray-500 ml-2 font-normal">(支援跨頁選取)</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button onclick="app.changeContactPage(-1)" class="anime-btn bg-white px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100">&lt; 上一頁</button>
+                            <span class="text-sm font-bold text-gray-700" id="contactPageInfo">第 1 / 1 頁</span>
+                            <button onclick="app.changeContactPage(1)" class="anime-btn bg-white px-3 py-1 text-sm shadow-[1px_1px_0px_#1f2937] hover:bg-gray-100">下一頁 &gt;</button>
+                        </div>
+                    </div>
+
                     <table class="w-full text-left border-collapse min-w-[800px]">
                         <thead>
                             <tr class="border-b-2 border-gray-800 bg-gray-100">
-                                <!-- 【新增】全選核取方塊 -->
-                                <th class="p-3 font-bold w-10 text-center"><input type="checkbox" class="anime-checkbox" id="contactSelectAll" onclick="app.toggleSelectAllContacts(this)"></th>
+                                <th class="p-3 font-bold w-12 text-center border-r border-gray-300">
+                                    <input type="checkbox" class="anime-checkbox" id="contactSelectAll" onclick="app.toggleSelectAllContacts(this)" title="全選/取消全選目前查詢的聯絡人">
+                                </th>
                                 <th class="p-3 font-bold">名稱</th>
                                 <th class="p-3 font-bold">性別</th>
                                 <th class="p-3 font-bold">職稱</th>
@@ -871,8 +889,9 @@
             totalInboxCount: 0,
             composeAttachments: [],
             composeRecipients: [],
-            selectedContactIds: new Set(), // 紀錄通訊錄批次勾選
-            batchGroupAction: 'add'
+            selectedContactIds: new Set(),
+            batchGroupAction: 'add',
+            contactPage: 1 // 【新增】通訊錄當前頁數
         };
 
         const escapeHTML = (str) => {
@@ -1748,26 +1767,50 @@
                 this.renderContacts();
             },
 
-            // --- 聯絡人批次選擇 ---
+            // --- 聯絡人批次選擇與分頁邏輯 ---
+            getFilteredContacts: function() {
+                const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
+                const filterComp = document.getElementById('filterCompany')?.value;
+                const filterGrp = document.getElementById('filterGroup')?.value; 
+                
+                return state.contacts.filter(c => {
+                    const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
+                    const matchComp = filterComp ? c.company === filterComp : true;
+                    let inGroup = true;
+                    if (filterGrp) {
+                        if (c.groups && Array.isArray(c.groups)) inGroup = c.groups.includes(filterGrp);
+                        else inGroup = false; 
+                    }
+                    return matchTerm && matchComp && inGroup;
+                });
+            },
+
+            filterContactsChanged: function() {
+                state.contactPage = 1; // 篩選條件改變時，強制回到第一頁
+                this.renderContacts();
+            },
+
+            changeContactPage: function(delta) {
+                const filtered = this.getFilteredContacts();
+                const totalPages = Math.max(1, Math.ceil(filtered.length / 50));
+                let newPage = state.contactPage + delta;
+                if (newPage < 1) newPage = 1;
+                if (newPage > totalPages) newPage = totalPages;
+
+                if (newPage !== state.contactPage) {
+                    state.contactPage = newPage;
+                    this.renderContacts();
+                }
+            },
+
             toggleSelectAllContacts: function(cb) {
-                state.selectedContactIds.clear();
+                const filtered = this.getFilteredContacts();
                 if(cb.checked) {
-                    const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
-                    const filterComp = document.getElementById('filterCompany')?.value;
-                    const filterGrp = document.getElementById('filterGroup')?.value; 
-                    
-                    const filtered = state.contacts.filter(c => {
-                        const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
-                        const matchComp = filterComp ? c.company === filterComp : true;
-                        let inGroup = true;
-                        if (filterGrp) {
-                            if (c.groups && Array.isArray(c.groups)) inGroup = c.groups.includes(filterGrp);
-                            else inGroup = false; 
-                        }
-                        return matchTerm && matchComp && inGroup;
-                    });
-                    
+                    // 全選當前篩選下的「所有」聯絡人 (支援跨頁批次處理)
                     filtered.forEach(c => state.selectedContactIds.add(c.id));
+                } else {
+                    // 取消全選
+                    filtered.forEach(c => state.selectedContactIds.delete(c.id));
                 }
                 this.renderContacts();
             },
@@ -1776,9 +1819,7 @@
                 if(cb.checked) state.selectedContactIds.add(id);
                 else state.selectedContactIds.delete(id);
                 
-                const allCb = document.getElementById('contactSelectAll');
-                // We won't strictly manage indeterminate state here for simplicity, just uncheck if not all selected
-                if(!cb.checked && allCb) allCb.checked = false;
+                this.renderContacts(); // 重新渲染以套用高亮色塊與更新數字
             },
             
             clearContactSelection: function() {
@@ -1788,7 +1829,7 @@
                 this.renderContacts();
             },
 
-            // --- 聯絡人批次管理群組 ---
+            // --- 聯絡人批次管理群組與刪除 ---
             batchAddGroups: function() {
                 if (state.selectedContactIds.size === 0) { showToast("請先勾選下方的聯絡人"); return; }
                 this.openBatchGroupModal('add');
@@ -1798,25 +1839,32 @@
                 this.openBatchGroupModal('remove');
             },
             
-            openBatchGroupModal: function(action) {
-                if (state.groups.length === 0) { showToast("目前沒有群組，請先新增"); return; }
+            batchDeleteContacts: async function() {
+                if (state.selectedContactIds.size === 0) { showToast("請先勾選要刪除的聯絡人"); return; }
+                if (!(await app.customConfirm("批次刪除聯絡人", `確定要徹底刪除選取的 ${state.selectedContactIds.size} 位聯絡人嗎？此操作無法復原。`))) return;
                 
-                state.batchGroupAction = action;
-                document.getElementById('batchGroupModalTitle').textContent = action === 'add' ? `批次加入群組 (共 ${state.selectedContactIds.size} 人)` : `批次退出群組 (共 ${state.selectedContactIds.size} 人)`;
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                const batch = writeBatch(db);
+                let deleteCount = 0;
                 
-                const sel = document.getElementById('batchGroupSelect');
-                sel.innerHTML = '<option value="">請選擇目標群組...</option>';
-                state.groups.forEach(g => {
-                    sel.innerHTML += `<option value="${g.id}">${escapeHTML(g.name)}</option>`;
+                state.selectedContactIds.forEach(id => {
+                    const ref = getDoc('contacts', id);
+                    batch.delete(ref);
+                    deleteCount++;
                 });
                 
-                document.getElementById('batchGroupModal').classList.remove('hidden');
+                try {
+                    if (deleteCount > 0) {
+                        await batch.commit();
+                        showToast(`已成功刪除 ${deleteCount} 位聯絡人！`);
+                    }
+                    this.clearContactSelection();
+                } catch (e) {
+                    showToast("刪除失敗：" + e.message);
+                } finally {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                }
             },
-            
-            closeBatchGroupModal: function() {
-                document.getElementById('batchGroupModal').classList.add('hidden');
-            },
-            
             executeBatchGroup: async function() {
                 const groupId = document.getElementById('batchGroupSelect').value;
                 if (!groupId) { showToast("請選擇目標群組"); return; }
@@ -1871,12 +1919,15 @@
 
             // --- 匯出 CSV ---
             exportContacts: function() {
-                if (state.contacts.length === 0) { showToast("目前沒有聯絡人可以匯出"); return; }
+                // 【修改】只匯出當前篩選條件下的聯絡人，而非全部
+                const filtered = this.getFilteredContacts();
+                
+                if (filtered.length === 0) { showToast("目前沒有符合條件的聯絡人可以匯出"); return; }
                 
                 // 相容於常見郵件系統的 CSV 標頭
                 let csvContent = "Name,E-mail Address,Gender,Job Title,Company,Notes\n";
                 
-                state.contacts.forEach(c => {
+                filtered.forEach(c => {
                     let genderStr = c.gender === 'M' ? '男' : (c.gender === 'F' ? '女' : '其他');
                     // 處理文字內的雙引號，避免 CSV 格式錯亂
                     const s = (str) => `"${(str || '').replace(/"/g, '""')}"`;
@@ -1976,40 +2027,42 @@
             },
 
             renderContacts: function() {
-                const term = (document.getElementById('contactSearch')?.value || '').toLowerCase();
-                const filterComp = document.getElementById('filterCompany')?.value;
-                const filterGrp = document.getElementById('filterGroup')?.value; 
-                
-                const tbody = document.getElementById('contactsTableBody');
-                if(!tbody) return;
-                tbody.innerHTML = '';
-                
-                const filtered = state.contacts.filter(c => {
-                    const matchTerm = c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
-                    const matchComp = filterComp ? c.company === filterComp : true;
-                    let inGroup = true;
-                    if (filterGrp) {
-                        if (c.groups && Array.isArray(c.groups)) inGroup = c.groups.includes(filterGrp);
-                        else inGroup = false; 
-                    }
-                    return matchTerm && matchComp && inGroup;
-                });
+                const filtered = this.getFilteredContacts();
                 
                 const countEl = document.getElementById('contactsCount');
                 if (countEl) countEl.textContent = `(篩選結果: ${filtered.length} 筆)`;
                 
-                // 更新全選 Checkbox 狀態
+                const selectedCountEl = document.getElementById('contactSelectedCount');
+                if (selectedCountEl) selectedCountEl.textContent = state.selectedContactIds.size;
+                
+                // 更新分頁資訊與邊界防呆
+                const totalPages = Math.max(1, Math.ceil(filtered.length / 50));
+                if (state.contactPage > totalPages) state.contactPage = totalPages;
+                
+                const pageInfoEl = document.getElementById('contactPageInfo');
+                if (pageInfoEl) pageInfoEl.textContent = `第 ${state.contactPage} / ${totalPages} 頁`;
+
+                // 更新全選 Checkbox 狀態 (當前篩選是否全被選取)
                 const allCb = document.getElementById('contactSelectAll');
                 if (allCb) {
                     allCb.checked = filtered.length > 0 && filtered.every(c => state.selectedContactIds.has(c.id));
                 }
+                
+                const tbody = document.getElementById('contactsTableBody');
+                if(!tbody) return;
+                tbody.innerHTML = '';
                 
                 if (filtered.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
                     return;
                 }
                 
-                filtered.forEach(c => {
+                // 擷取當前頁面的 50 筆資料
+                const startIdx = (state.contactPage - 1) * 50;
+                const endIdx = startIdx + 50;
+                const pageItems = filtered.slice(startIdx, endIdx);
+                
+                pageItems.forEach(c => {
                     const groupNames = (c.groups || []).map(gid => {
                         const g = state.groups.find(x => x.id === gid);
                         return g ? `<span class="bg-gray-200 text-gray-800 text-xs px-2 py-0.5 rounded border border-gray-400 font-bold inline-block m-0.5">${escapeHTML(g.name)}</span>` : '';
@@ -2018,9 +2071,12 @@
                     const isChecked = state.selectedContactIds.has(c.id);
                     const genderIcon = c.gender === 'M' ? '<span class="text-blue-500 font-bold">男</span>' : (c.gender === 'F' ? '<span class="text-pink-500 font-bold">女</span>' : '<span class="text-gray-500">其他</span>');
 
+                    // 【修改】被選取時的高亮標記 (黃底 + 粗黃色左邊框)
+                    const rowClass = isChecked ? 'bg-yellow-200 border-l-[6px] border-yellow-500' : 'hover:bg-green-50 border-l-[6px] border-transparent';
+
                     tbody.innerHTML += `
-                        <tr class="hover:bg-green-50 transition ${isChecked ? 'bg-yellow-100' : ''}">
-                            <td class="p-3 text-center">
+                        <tr class="transition border-b border-gray-300 ${rowClass}">
+                            <td class="p-3 text-center border-r border-gray-300">
                                 <input type="checkbox" class="anime-checkbox" ${isChecked ? 'checked' : ''} onclick="app.toggleContactSelect(this, '${c.id}')">
                             </td>
                             <td class="p-3 font-bold text-gray-800">${escapeHTML(c.name)}</td>
