@@ -126,6 +126,8 @@
                     </div>
                 </div>
                 
+                <!-- 【刪除】已經不需要 v2 的顯示容器了 -->
+                
                 <div class="flex flex-col space-y-3 pt-4">
                     <button id="btnLogin" onclick="app.login()" class="anime-btn bg-orange-400 hover:bg-orange-500 text-white w-full py-3 text-lg flex items-center justify-center">
                         <i data-lucide="log-in" class="w-5 h-5 mr-2"></i> 登入系統
@@ -159,6 +161,9 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 【刪除】已經不需要 v2 的顯示容器了 -->
+
                 <div class="flex space-x-3 pt-4">
                     <button onclick="app.closeRegisterModal()" class="anime-btn bg-gray-200 px-6 py-2 flex-1 text-gray-800">取消</button>
                     <button onclick="app.register()" class="anime-btn bg-blue-400 hover:bg-blue-500 text-white px-6 py-2 flex-1">送出申請</button>
@@ -935,8 +940,14 @@
         <span id="toastMsg">Message</span>
     </div>
 
-    <!-- 【新增】提供輸入框自動完成功能的 Datalist -->
+    <!-- 提供輸入框自動完成功能的 Datalist -->
     <datalist id="contactDatalist"></datalist>
+
+    <!-- 【修改】替換為 Google reCAPTCHA v3 載入腳本，並套用您的專屬金鑰 -->
+    <script>
+        window.RECAPTCHA_V3_SITE_KEY = '6LfZK-QsAAAAAC_fr1LyAmc_x2WxPJaT5PHQ96ui';
+    </script>
+    <script src="https://www.google.com/recaptcha/api.js?render=6LfZK-QsAAAAAC_fr1LyAmc_x2WxPJaT5PHQ96ui"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -1103,6 +1114,24 @@
                 if (!pw) { this.showCenterAlert("請輸入您的登入密碼！"); return; }
                 
                 document.getElementById('loadingOverlay').classList.remove('hidden');
+
+                // 【新增】執行 reCAPTCHA v3 背景驗證
+                try {
+                    const token = await new Promise((resolve, reject) => {
+                        grecaptcha.ready(() => {
+                            grecaptcha.execute(window.RECAPTCHA_V3_SITE_KEY, {action: 'login'})
+                                .then(resolve)
+                                .catch(reject);
+                        });
+                    });
+                    if (!token) throw new Error("Token missing");
+                    // 注意：在真實正式環境中，您應該將這個 token 傳到後端(Vercel)去驗證分數。
+                    // 這裡先作前端阻擋，若無法產出 token 代表被判定為惡意環境。
+                } catch (e) {
+                    this.showCenterAlert("reCAPTCHA 安全驗證失敗，請重新載入網頁或關閉阻擋擴充功能！");
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    return;
+                }
                 
                 try {
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
@@ -1201,8 +1230,24 @@
                     this.showCenterAlert("帳號名稱不能包含空白字元！");
                     return;
                 }
-                
+
                 document.getElementById('loadingOverlay').classList.remove('hidden');
+
+                // 【新增】執行 reCAPTCHA v3 背景驗證
+                try {
+                    const token = await new Promise((resolve, reject) => {
+                        grecaptcha.ready(() => {
+                            grecaptcha.execute(window.RECAPTCHA_V3_SITE_KEY, {action: 'register'})
+                                .then(resolve)
+                                .catch(reject);
+                        });
+                    });
+                    if (!token) throw new Error("Token missing");
+                } catch (e) {
+                    this.showCenterAlert("reCAPTCHA 安全驗證失敗，請重新載入網頁或關閉阻擋擴充功能！");
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    return;
+                }
                 
                 try {
                     const userDocSnap = await getFsDoc(getSysUserDoc(un));
@@ -2242,7 +2287,6 @@
                 tbody.innerHTML = '';
                 
                 if (filtered.length === 0) {
-                    // 【修改】因為增加了一欄序號，將 colspan 改為 9
                     tbody.innerHTML = '<tr><td colspan="9" class="p-6 text-center text-gray-500 font-bold">查無聯絡人</td></tr>';
                     const allCb = document.getElementById('contactSelectAll');
                     if (allCb) allCb.checked = false;
@@ -2254,12 +2298,12 @@
                 const endIdx = startIdx + 50;
                 const pageItems = filtered.slice(startIdx, endIdx);
                 
-                const allCb = document.getElementById('contactSelectAll');
-                if (allCb) {
-                    allCb.checked = pageItems.length > 0 && pageItems.every(c => state.selectedContactIds.has(c.id));
+                // 【修復】移除重複宣告的 const，避免發生 SyntaxError 錯誤
+                const allCbStatus = document.getElementById('contactSelectAll');
+                if (allCbStatus) {
+                    allCbStatus.checked = pageItems.length > 0 && pageItems.every(c => state.selectedContactIds.has(c.id));
                 }
 
-                // 【修改】加入 index 以便計算序號
                 pageItems.forEach((c, index) => {
                     const serialNum = startIdx + index + 1; // 依據分頁計算實際序號
                     
@@ -2546,7 +2590,6 @@
                 if (pageInfoEl) pageInfoEl.textContent = `第 ${state.csPage} / ${totalPages} 頁`;
 
                 if (filtered.length === 0) {
-                    // 【修改】因為增加了一欄序號，將 colspan 改為 3
                     listEl.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-500 font-bold">查無符合條件的聯絡人</td></tr>';
                     const allCb = document.getElementById('csSelectAllCb');
                     if (allCb) allCb.checked = false;
@@ -2557,12 +2600,12 @@
                 const endIdx = startIdx + 50;
                 const pageItems = filtered.slice(startIdx, endIdx);
 
-                const allCb = document.getElementById('csSelectAllCb');
-                if (allCb) {
-                    allCb.checked = pageItems.length > 0 && pageItems.every(c => state.csSelected.has(c.email));
+                // 【修復】移除重複宣告的 const，避免發生 SyntaxError 錯誤
+                const allCbStatus = document.getElementById('csSelectAllCb');
+                if (allCbStatus) {
+                    allCbStatus.checked = pageItems.length > 0 && pageItems.every(c => state.csSelected.has(c.email));
                 }
 
-                // 【修改】加入 index 以便計算序號
                 pageItems.forEach((c, index) => {
                     const serialNum = startIdx + index + 1; // 依據分頁計算實際序號
                     
